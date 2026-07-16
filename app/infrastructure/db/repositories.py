@@ -10,7 +10,7 @@ from app.domain.facts import Fact, PersonExtraction
 from app.domain.jobs import AnalysisJob, JobStep
 from app.domain.people import PersonSegment
 from app.domain.quality import QualityFinding
-from app.domain.review import GeneratedSection, SectionVersion
+from app.domain.review import GeneratedSection, SectionReview, SectionVersion
 from app.domain.task import Task
 from app.infrastructure.db.models import (
     AnalysisJobRow,
@@ -19,6 +19,7 @@ from app.infrastructure.db.models import (
     JobStepRow,
     PersonRow,
     QualityFindingRow,
+    SectionReviewRow,
     SectionVersionRow,
     TaskRow,
 )
@@ -284,6 +285,71 @@ class SectionVersionRepository:
             generated=GeneratedSection.model_validate_json(row.payload_json),
             status=row.status,
             instruction=row.instruction,
+            created_at=row.created_at,
+        )
+
+
+class SectionReviewRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def save(self, task_id: str, review: SectionReview) -> SectionReview:
+        row = SectionReviewRow(
+            id=str(uuid4()),
+            task_id=task_id,
+            section_key=review.section_key,
+            revision=review.revision,
+            content=review.content,
+            confirmed=review.confirmed,
+            editor=review.editor,
+        )
+        self._session.add(row)
+        self._session.flush()
+        return self._to_domain(row)
+
+    def latest(self, task_id: str, section_key: str) -> SectionReview | None:
+        row = self._session.scalar(
+            select(SectionReviewRow)
+            .where(
+                SectionReviewRow.task_id == task_id,
+                SectionReviewRow.section_key == section_key,
+            )
+            .order_by(SectionReviewRow.revision.desc())
+            .limit(1)
+        )
+        return self._to_domain(row) if row is not None else None
+
+    def get_revision(
+        self, task_id: str, section_key: str, revision: int
+    ) -> SectionReview | None:
+        row = self._session.scalar(
+            select(SectionReviewRow).where(
+                SectionReviewRow.task_id == task_id,
+                SectionReviewRow.section_key == section_key,
+                SectionReviewRow.revision == revision,
+            )
+        )
+        return self._to_domain(row) if row is not None else None
+
+    def list_versions(self, task_id: str, section_key: str) -> list[SectionReview]:
+        rows = self._session.scalars(
+            select(SectionReviewRow)
+            .where(
+                SectionReviewRow.task_id == task_id,
+                SectionReviewRow.section_key == section_key,
+            )
+            .order_by(SectionReviewRow.revision.desc())
+        )
+        return [self._to_domain(row) for row in rows]
+
+    @staticmethod
+    def _to_domain(row: SectionReviewRow) -> SectionReview:
+        return SectionReview(
+            section_key=row.section_key,
+            revision=row.revision,
+            content=row.content,
+            confirmed=row.confirmed,
+            editor=row.editor,
             created_at=row.created_at,
         )
 
