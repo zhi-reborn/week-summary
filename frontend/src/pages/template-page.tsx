@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 import { api } from "../api/client";
 import type { TemplateSection } from "../api/types";
 import { ErrorBanner } from "../components/error-banner";
 import { Stepper } from "../components/stepper";
 
-export function TemplatePage({ taskId }: { taskId: string }) {
+export function TemplatePage({ taskId, onConfirmed }: { taskId: string; onConfirmed?: () => void }) {
   const [sections, setSections] = useState<TemplateSection[]>([]);
   const [acknowledged, setAcknowledged] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState("");
@@ -25,7 +25,12 @@ export function TemplatePage({ taskId }: { taskId: string }) {
   const ready = sections.length > 0 && lowConfidence.every((section) => acknowledged.has(section.id));
 
   async function confirm() {
-    await api(`/api/tasks/${taskId}/template/confirm`, { method: "POST" });
+    try {
+      await api(`/api/tasks/${taskId}/template/confirm`, { method: "POST" });
+      onConfirmed?.();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "确认模板失败");
+    }
   }
 
   return (
@@ -53,5 +58,6 @@ export function TemplatePage({ taskId }: { taskId: string }) {
 
 export function TemplateRoutePage() {
   const params = useParams();
-  return <TemplatePage taskId={params.id ?? ""} />;
+  const navigate = useNavigate();
+  return <TemplatePage taskId={params.id ?? ""} onConfirmed={() => navigate(`/tasks/${params.id}/analysis`)} />;
 }

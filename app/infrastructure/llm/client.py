@@ -101,7 +101,11 @@ class OpenAICompatibleClient:
         if self._api_key:
             headers["Authorization"] = f"Bearer {self._api_key}"
         try:
-            with httpx.Client(transport=self._transport, timeout=self._timeout) as client:
+            with httpx.Client(
+                transport=self._transport,
+                timeout=self._timeout,
+                trust_env=False,
+            ) as client:
                 return client.post(self._url, headers=headers, json=payload)
         except httpx.TimeoutException as exc:
             raise LLMConnectionError("MODEL_TIMEOUT", "模型连接超时") from exc

@@ -19,3 +19,13 @@ export type TemplateSection = {
   max_chars: number;
 };
 
+export type AnalysisProgress = {
+  task_id: string;
+  task_status: string;
+  job_status: string | null;
+  total_steps: number;
+  succeeded_steps: number;
+  current_step: string | null;
+  failed_error_code: string | null;
+  retryable: boolean;
+};
