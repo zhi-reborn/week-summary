@@ -1,7 +1,7 @@
 from app.domain.enums import TaskStatus
 from app.domain.people import SegmentationResult
 from app.domain.task import Task
-from app.infrastructure.db.repositories import TaskRepository
+from app.infrastructure.db.repositories import PeopleRepository, TaskRepository
 from app.infrastructure.files.task_storage import TaskStorage
 from app.infrastructure.txt.decoding import decode_report
 from app.infrastructure.txt.segmentation import segment_people
@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 class SegmentationService:
     def __init__(self, session: Session, storage: TaskStorage) -> None:
         self._repository = TaskRepository(session)
+        self._people = PeopleRepository(session)
         self._storage = storage
 
     def detect(self, task_id: str) -> SegmentationResult:
@@ -47,6 +48,7 @@ class SegmentationService:
         result = self.get(task_id)
         if not result.people or result.unassigned:
             raise ValueError("人员拆分仍有未分配内容")
+        self._people.replace_confirmed(task_id, result.people)
         return self._repository.set_status(task_id, TaskStatus.TEMPLATE_CONFIRMATION)
 
     def _require_task(self, task_id: str) -> None:

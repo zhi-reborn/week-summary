@@ -1,5 +1,7 @@
 from fastapi.testclient import TestClient
 
+from app.infrastructure.db.repositories import PeopleRepository
+
 
 def test_detects_and_confirms_people(client: TestClient, valid_docx_bytes: bytes) -> None:
     task = client.post("/api/tasks", json={"name": "第29周"}).json()
@@ -23,6 +25,11 @@ def test_detects_and_confirms_people(client: TestClient, valid_docx_bytes: bytes
     confirm_response = client.post(f"/api/tasks/{task['id']}/people/confirm")
     assert confirm_response.status_code == 200
     assert confirm_response.json()["status"] == "template_confirmation"
+    with client.app.state.session_factory() as session:
+        assert [person.name for person in PeopleRepository(session).list_confirmed(task["id"])] == [
+            "张三",
+            "李四",
+        ]
 
 
 def test_rejects_overlapping_people_ranges(client: TestClient, valid_docx_bytes: bytes) -> None:

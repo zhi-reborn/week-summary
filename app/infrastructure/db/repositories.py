@@ -1,11 +1,16 @@
+import json
+from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.domain.enums import TaskStatus
+from app.domain.facts import Fact, PersonExtraction
+from app.domain.jobs import JobStep
+from app.domain.people import PersonSegment
 from app.domain.task import Task
-from app.infrastructure.db.models import TaskRow
+from app.infrastructure.db.models import FactRow, FactSourceRow, JobStepRow, PersonRow, TaskRow
 
 
 class TaskRepository:
@@ -38,4 +43,171 @@ class TaskRepository:
             status=TaskStatus(row.status),
             created_at=row.created_at,
             updated_at=row.updated_at,
+        )
+
+
+class PeopleRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def replace_confirmed(self, task_id: str, people: list[PersonSegment]) -> None:
+        self._session.execute(delete(PersonRow).where(PersonRow.task_id == task_id))
+        self._session.add_all(
+            [
+                PersonRow(
+                    task_id=task_id,
+                    id=person.id,
+                    name=person.name,
+                    line_start=person.line_start,
+                    line_end=person.line_end,
+                    content=person.content,
+                )
+                for person in people
+            ]
+        )
+        self._session.flush()
+
+    def list_confirmed(self, task_id: str) -> list[PersonSegment]:
+        rows = self._session.scalars(
+            select(PersonRow).where(PersonRow.task_id == task_id).order_by(PersonRow.line_start)
+        )
+        return [
+            PersonSegment(
+                id=row.id,
+                name=row.name,
+                line_start=row.line_start,
+                line_end=row.line_end,
+                content=row.content,
+            )
+            for row in rows
+        ]
+
+
+class FactRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def replace_person_facts(self, task_id: str, extraction: PersonExtraction) -> None:
+        existing_ids = list(
+            self._session.scalars(
+                select(FactRow.id).where(
+                    FactRow.task_id == task_id,
+                    FactRow.person_id == extraction.person_id,
+                )
+            )
+        )
+        if existing_ids:
+            self._session.execute(
+                delete(FactSourceRow).where(
+                    FactSourceRow.task_id == task_id,
+                    FactSourceRow.fact_id.in_(existing_ids),
+                )
+            )
+        self._session.execute(
+            delete(FactRow).where(
+                FactRow.task_id == task_id,
+                FactRow.person_id == extraction.person_id,
+            )
+        )
+        for fact in extraction.facts:
+            self._session.add(
+                FactRow(
+                    task_id=task_id,
+                    id=fact.id,
+                    person_id=extraction.person_id,
+                    kind=fact.kind.value,
+                    topic=fact.topic,
+                    text=fact.text,
+                    metrics_json=json.dumps([item.model_dump() for item in fact.metrics]),
+                    payload_json=fact.model_dump_json(),
+                    confidence=fact.confidence,
+                )
+            )
+            self._session.add_all(
+                [
+                    FactSourceRow(
+                        task_id=task_id,
+                        fact_id=fact.id,
+                        person_id=source.person_id,
+                        line_start=source.line_start,
+                        line_end=source.line_end,
+                        quote=source.quote,
+                    )
+                    for source in fact.sources
+                ]
+            )
+        self._session.flush()
+
+    def list_by_person(self, task_id: str, person_id: str) -> list[Fact]:
+        rows = self._session.scalars(
+            select(FactRow)
+            .where(FactRow.task_id == task_id, FactRow.person_id == person_id)
+            .order_by(FactRow.id)
+        )
+        return [Fact.model_validate_json(row.payload_json) for row in rows]
+
+    def list_by_task(self, task_id: str) -> list[Fact]:
+        rows = self._session.scalars(
+            select(FactRow).where(FactRow.task_id == task_id).order_by(FactRow.id)
+        )
+        return [Fact.model_validate_json(row.payload_json) for row in rows]
+
+
+class JobStepRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def get(self, task_id: str, step_type: str, entity_id: str) -> JobStep | None:
+        row = self._session.scalar(
+            select(JobStepRow).where(
+                JobStepRow.task_id == task_id,
+                JobStepRow.step_type == step_type,
+                JobStepRow.entity_id == entity_id,
+            )
+        )
+        return self._to_domain(row) if row is not None else None
+
+    def get_or_create(self, task_id: str, step_type: str, entity_id: str) -> JobStep:
+        existing = self.get(task_id, step_type, entity_id)
+        if existing is not None:
+            return existing
+        row = JobStepRow(
+            id=str(uuid4()),
+            task_id=task_id,
+            step_type=step_type,
+            entity_id=entity_id,
+            status="pending",
+        )
+        self._session.add(row)
+        self._session.flush()
+        return self._to_domain(row)
+
+    def mark_running(self, step_id: str) -> JobStep:
+        return self._set_status(step_id, "running", None)
+
+    def mark_succeeded(self, step_id: str) -> JobStep:
+        return self._set_status(step_id, "succeeded", None)
+
+    def mark_failed(self, step_id: str, error_code: str) -> JobStep:
+        return self._set_status(step_id, "failed", error_code)
+
+    def _set_status(self, step_id: str, status: str, error_code: str | None) -> JobStep:
+        row = self._session.get(JobStepRow, step_id)
+        if row is None:
+            raise LookupError("任务步骤不存在")
+        row.status = status
+        row.error_code = error_code
+        row.updated_at = datetime.now(timezone.utc)
+        self._session.flush()
+        return self._to_domain(row)
+
+    @staticmethod
+    def _to_domain(row: JobStepRow) -> JobStep:
+        return JobStep(
+            id=row.id,
+            task_id=row.task_id,
+            step_type=row.step_type,
+            entity_id=row.entity_id,
+            status=row.status,
+            error_code=row.error_code,
         )
