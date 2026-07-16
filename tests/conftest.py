@@ -1,6 +1,7 @@
 from collections.abc import Iterator
 from io import BytesIO
 from pathlib import Path
+from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
 from alembic import command
@@ -45,4 +46,15 @@ def valid_docx_bytes() -> bytes:
     document.add_paragraph("{{本周重点}}")
     output = BytesIO()
     document.save(output)
+    return output.getvalue()
+
+
+@pytest.fixture
+def zip_with_many_entries() -> bytes:
+    output = BytesIO()
+    with ZipFile(output, "w", ZIP_DEFLATED) as archive:
+        archive.writestr("[Content_Types].xml", "<Types/>")
+        archive.writestr("word/document.xml", "<document/>")
+        for index in range(20):
+            archive.writestr(f"word/item-{index}.xml", "<item/>")
     return output.getvalue()
