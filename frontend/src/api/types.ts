@@ -1,0 +1,21 @@
+export type Task = { id: string; name: string; status: string };
+export type SourceSpan = { line_start: number; line_end: number; text: string };
+export type PersonSegment = {
+  id: string;
+  name: string;
+  line_start: number;
+  line_end: number;
+  content: string;
+};
+export type SegmentationResult = { people: PersonSegment[]; unassigned: SourceSpan[] };
+export type TemplateSection = {
+  id: string;
+  name: string;
+  method: string;
+  confidence: number;
+  required: boolean;
+  locator: { part: string; paragraph_index: number; token: string | null };
+  instruction: string;
+  max_chars: number;
+};
+
