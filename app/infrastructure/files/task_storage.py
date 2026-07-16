@@ -28,6 +28,9 @@ class TaskStorage:
     def read_input(self, task_id: str, stored_name: str) -> bytes:
         return (self._tasks_dir / task_id / "input" / stored_name).read_bytes()
 
+    def input_path(self, task_id: str, stored_name: str) -> Path:
+        return self._tasks_dir / task_id / "input" / stored_name
+
     def write_result(self, task_id: str, stored_name: str, data: bytes) -> Path:
         result_dir = self._tasks_dir / task_id / "result"
         result_dir.mkdir(parents=True, exist_ok=True)
