@@ -2,6 +2,8 @@ from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
+from app.domain.facts import FactKind
+
 
 class RecognitionMethod(StrEnum):
     PLACEHOLDER = "placeholder"
@@ -25,4 +27,4 @@ class TemplateSection(BaseModel):
     locator: TemplateLocator
     instruction: str = ""
     max_chars: int = Field(default=1200, ge=50, le=10000)
-
+    allowed_fact_kinds: list[FactKind] = Field(default_factory=list)

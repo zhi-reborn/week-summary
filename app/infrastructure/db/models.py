@@ -77,3 +77,30 @@ class JobStepRow(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
+
+
+class SectionVersionRow(Base):
+    __tablename__ = "section_versions"
+    __table_args__ = (UniqueConstraint("task_id", "section_id", "version"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    task_id: Mapped[str] = mapped_column(String(36), index=True)
+    section_id: Mapped[str] = mapped_column(String(80), index=True)
+    version: Mapped[int] = mapped_column(Integer)
+    payload_json: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(20))
+    instruction: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class QualityFindingRow(Base):
+    __tablename__ = "quality_findings"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    task_id: Mapped[str] = mapped_column(String(36), index=True)
+    section_version_id: Mapped[str] = mapped_column(String(36), index=True)
+    code: Mapped[str] = mapped_column(String(80))
+    message: Mapped[str] = mapped_column(Text)
+    token: Mapped[str | None] = mapped_column(String(300), nullable=True)

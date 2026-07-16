@@ -3,11 +3,22 @@ from typing import Any
 
 import httpx
 
+from app.domain.facts import Fact, PersonExtraction
 from app.domain.model_settings import ModelCapabilities
-from app.domain.facts import PersonExtraction
 from app.domain.people import PersonSegment
-from app.infrastructure.llm.prompts import build_person_extraction_messages, build_repair_messages
-from app.infrastructure.llm.schemas import InvalidStructuredResponse, parse_person_extraction
+from app.domain.review import GeneratedSection
+from app.domain.template import TemplateSection
+from app.infrastructure.llm.prompts import (
+    build_person_extraction_messages,
+    build_repair_messages,
+    build_section_generation_messages,
+    build_section_repair_messages,
+)
+from app.infrastructure.llm.schemas import (
+    InvalidStructuredResponse,
+    parse_generated_section,
+    parse_person_extraction,
+)
 
 
 class LLMConnectionError(Exception):
@@ -60,6 +71,16 @@ class OpenAICompatibleClient:
         except InvalidStructuredResponse:
             repaired = self._complete(build_repair_messages(raw))
             return parse_person_extraction(repaired)
+
+    def generate_section(
+        self, section: TemplateSection, facts: list[Fact], instruction: str
+    ) -> GeneratedSection:
+        raw = self._complete(build_section_generation_messages(section, facts, instruction))
+        try:
+            return parse_generated_section(raw)
+        except InvalidStructuredResponse:
+            repaired = self._complete(build_section_repair_messages(raw))
+            return parse_generated_section(repaired)
 
     def _complete(self, messages: list[dict[str, str]]) -> str:
         payload: dict[str, Any] = {

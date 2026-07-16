@@ -1,6 +1,7 @@
 from pydantic import ValidationError
 
 from app.domain.facts import PersonExtraction
+from app.domain.review import GeneratedSection
 
 
 class InvalidStructuredResponse(ValueError):
@@ -11,6 +12,14 @@ def parse_person_extraction(raw: str) -> PersonExtraction:
     candidate = _json_candidate(raw)
     try:
         return PersonExtraction.model_validate_json(candidate)
+    except (ValidationError, ValueError) as exc:
+        raise InvalidStructuredResponse(f"invalid structured response: {exc}") from exc
+
+
+def parse_generated_section(raw: str) -> GeneratedSection:
+    candidate = _json_candidate(raw)
+    try:
+        return GeneratedSection.model_validate_json(candidate)
     except (ValidationError, ValueError) as exc:
         raise InvalidStructuredResponse(f"invalid structured response: {exc}") from exc
 

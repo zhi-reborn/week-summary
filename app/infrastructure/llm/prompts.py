@@ -1,8 +1,10 @@
 import html
 import json
 
-from app.domain.facts import PersonExtraction
+from app.domain.facts import Fact, PersonExtraction
 from app.domain.people import PersonSegment
+from app.domain.review import GeneratedSection
+from app.domain.template import TemplateSection
 
 
 def build_person_extraction_messages(person: PersonSegment) -> list[dict[str, str]]:
@@ -39,6 +41,56 @@ def build_repair_messages(raw: str) -> list[dict[str, str]]:
         {
             "role": "system",
             "content": "修复给定响应，使其严格符合 JSON Schema。不得添加原响应中不存在的事实。只返回 JSON。",
+        },
+        {"role": "user", "content": f"JSON Schema:\n{schema}\n\n待修复响应：\n{raw}"},
+    ]
+
+
+def build_section_generation_messages(
+    section: TemplateSection, facts: list[Fact], instruction: str
+) -> list[dict[str, str]]:
+    schema = json.dumps(GeneratedSection.model_json_schema(), ensure_ascii=False)
+    fact_payload = []
+    for fact in facts:
+        item = fact.model_dump(mode="json")
+        item["source_ids"] = [
+            f"{fact.id}:S{index}" for index, _source in enumerate(fact.sources, start=1)
+        ]
+        fact_payload.append(item)
+    return [
+        {
+            "role": "system",
+            "content": (
+                "你是团队周报板块撰写器。只能使用候选事实，不得增加事实、人员、数字或来源。"
+                "fact_ids 和 source_ids 只能引用候选数据中的 ID。"
+                f"只返回符合以下 JSON Schema 的对象：{schema}"
+            ),
+        },
+        {
+            "role": "user",
+            "content": json.dumps(
+                {
+                    "section": {
+                        "id": section.id,
+                        "name": section.name,
+                        "instruction": section.instruction,
+                        "max_chars": section.max_chars,
+                    },
+                    "additional_instruction": instruction,
+                    "candidate_facts": fact_payload,
+                },
+                ensure_ascii=False,
+            ),
+        },
+    ]
+
+
+def build_section_repair_messages(raw: str) -> list[dict[str, str]]:
+    schema = json.dumps(GeneratedSection.model_json_schema(), ensure_ascii=False)
+    return [
+        {
+            "role": "system",
+            "content": "修复板块响应以符合 JSON Schema，不得添加新事实或 ID。只返回 JSON。",
         },
         {"role": "user", "content": f"JSON Schema:\n{schema}\n\n待修复响应：\n{raw}"},
     ]

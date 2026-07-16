@@ -2,15 +2,25 @@ import json
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 
 from app.domain.enums import TaskStatus
 from app.domain.facts import Fact, PersonExtraction
 from app.domain.jobs import JobStep
 from app.domain.people import PersonSegment
+from app.domain.quality import QualityFinding
+from app.domain.review import GeneratedSection, SectionVersion
 from app.domain.task import Task
-from app.infrastructure.db.models import FactRow, FactSourceRow, JobStepRow, PersonRow, TaskRow
+from app.infrastructure.db.models import (
+    FactRow,
+    FactSourceRow,
+    JobStepRow,
+    PersonRow,
+    QualityFindingRow,
+    SectionVersionRow,
+    TaskRow,
+)
 
 
 class TaskRepository:
@@ -211,3 +221,82 @@ class JobStepRepository:
             status=row.status,
             error_code=row.error_code,
         )
+
+
+class SectionVersionRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def save(
+        self,
+        task_id: str,
+        generated: GeneratedSection,
+        status: str,
+        instruction: str,
+    ) -> SectionVersion:
+        latest_version = self._session.scalar(
+            select(func.max(SectionVersionRow.version)).where(
+                SectionVersionRow.task_id == task_id,
+                SectionVersionRow.section_id == generated.section_id,
+            )
+        )
+        row = SectionVersionRow(
+            id=str(uuid4()),
+            task_id=task_id,
+            section_id=generated.section_id,
+            version=(latest_version or 0) + 1,
+            payload_json=generated.model_dump_json(),
+            status=status,
+            instruction=instruction,
+        )
+        self._session.add(row)
+        self._session.flush()
+        return self._to_domain(row)
+
+    def latest(self, task_id: str, section_id: str) -> SectionVersion | None:
+        row = self._session.scalar(
+            select(SectionVersionRow)
+            .where(
+                SectionVersionRow.task_id == task_id,
+                SectionVersionRow.section_id == section_id,
+            )
+            .order_by(SectionVersionRow.version.desc())
+            .limit(1)
+        )
+        return self._to_domain(row) if row is not None else None
+
+    @staticmethod
+    def _to_domain(row: SectionVersionRow) -> SectionVersion:
+        return SectionVersion(
+            id=row.id,
+            task_id=row.task_id,
+            section_id=row.section_id,
+            version=row.version,
+            generated=GeneratedSection.model_validate_json(row.payload_json),
+            status=row.status,
+            instruction=row.instruction,
+            created_at=row.created_at,
+        )
+
+
+class QualityFindingRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def save_for_version(
+        self, task_id: str, version_id: str, findings: list[QualityFinding]
+    ) -> None:
+        self._session.add_all(
+            [
+                QualityFindingRow(
+                    id=str(uuid4()),
+                    task_id=task_id,
+                    section_version_id=version_id,
+                    code=finding.code,
+                    message=finding.message,
+                    token=finding.token,
+                )
+                for finding in findings
+            ]
+        )
+        self._session.flush()
