@@ -104,3 +104,21 @@ class QualityFindingRow(Base):
     code: Mapped[str] = mapped_column(String(80))
     message: Mapped[str] = mapped_column(Text)
     token: Mapped[str | None] = mapped_column(String(300), nullable=True)
+
+
+class AnalysisJobRow(Base):
+    __tablename__ = "analysis_jobs"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('queued', 'running', 'succeeded', 'failed')",
+            name="ck_analysis_jobs_status",
+        ),
+    )
+
+    task_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    status: Mapped[str] = mapped_column(String(20))
+    owner_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )

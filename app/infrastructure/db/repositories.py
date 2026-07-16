@@ -2,17 +2,18 @@ import json
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from app.domain.enums import TaskStatus
 from app.domain.facts import Fact, PersonExtraction
-from app.domain.jobs import JobStep
+from app.domain.jobs import AnalysisJob, JobStep
 from app.domain.people import PersonSegment
 from app.domain.quality import QualityFinding
 from app.domain.review import GeneratedSection, SectionVersion
 from app.domain.task import Task
 from app.infrastructure.db.models import (
+    AnalysisJobRow,
     FactRow,
     FactSourceRow,
     JobStepRow,
@@ -192,6 +193,14 @@ class JobStepRepository:
         self._session.flush()
         return self._to_domain(row)
 
+    def list_for_task(self, task_id: str) -> list[JobStep]:
+        rows = self._session.scalars(
+            select(JobStepRow)
+            .where(JobStepRow.task_id == task_id)
+            .order_by(JobStepRow.updated_at, JobStepRow.id)
+        )
+        return [self._to_domain(row) for row in rows]
+
     def mark_running(self, step_id: str) -> JobStep:
         return self._set_status(step_id, "running", None)
 
@@ -300,3 +309,98 @@ class QualityFindingRepository:
             ]
         )
         self._session.flush()
+
+
+class AnalysisJobRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def enqueue(self, task_id: str) -> AnalysisJob:
+        row = self._session.get(AnalysisJobRow, task_id)
+        if row is None:
+            row = AnalysisJobRow(task_id=task_id, status="queued")
+            self._session.add(row)
+        else:
+            row.status = "queued"
+            row.owner_id = None
+            row.error_code = None
+            row.updated_at = datetime.now(timezone.utc)
+        self._session.flush()
+        return self._to_domain(row)
+
+    def create_failed(self, task_id: str, error_code: str) -> AnalysisJob:
+        job = self.enqueue(task_id)
+        return self.mark_failed(job.task_id, error_code)
+
+    def get(self, task_id: str) -> AnalysisJob | None:
+        row = self._session.get(AnalysisJobRow, task_id)
+        return self._to_domain(row) if row is not None else None
+
+    def claim_next(self, owner_id: str) -> AnalysisJob | None:
+        task_id = self._session.scalar(
+            select(AnalysisJobRow.task_id)
+            .where(AnalysisJobRow.status == "queued")
+            .order_by(AnalysisJobRow.updated_at)
+            .limit(1)
+        )
+        if task_id is None:
+            return None
+        result = self._session.execute(
+            update(AnalysisJobRow)
+            .where(
+                AnalysisJobRow.task_id == task_id,
+                AnalysisJobRow.status == "queued",
+            )
+            .values(
+                status="running",
+                owner_id=owner_id,
+                error_code=None,
+                updated_at=datetime.now(timezone.utc),
+            )
+        )
+        if getattr(result, "rowcount", 0) != 1:
+            return None
+        self._session.flush()
+        row = self._session.get(AnalysisJobRow, task_id)
+        if row is None:
+            return None
+        return self._to_domain(row)
+
+    def mark_succeeded(self, task_id: str) -> AnalysisJob:
+        return self._set_status(task_id, "succeeded", None)
+
+    def mark_failed(self, task_id: str, error_code: str) -> AnalysisJob:
+        return self._set_status(task_id, "failed", error_code)
+
+    def requeue_interrupted(self) -> int:
+        result = self._session.execute(
+            update(AnalysisJobRow)
+            .where(AnalysisJobRow.status == "running")
+            .values(
+                status="queued",
+                owner_id=None,
+                error_code=None,
+                updated_at=datetime.now(timezone.utc),
+            )
+        )
+        return int(getattr(result, "rowcount", 0))
+
+    def _set_status(self, task_id: str, status: str, error_code: str | None) -> AnalysisJob:
+        row = self._session.get(AnalysisJobRow, task_id)
+        if row is None:
+            raise LookupError("分析任务不存在")
+        row.status = status
+        row.error_code = error_code
+        row.owner_id = None
+        row.updated_at = datetime.now(timezone.utc)
+        self._session.flush()
+        return self._to_domain(row)
+
+    @staticmethod
+    def _to_domain(row: AnalysisJobRow) -> AnalysisJob:
+        return AnalysisJob(
+            task_id=row.task_id,
+            status=row.status,
+            owner_id=row.owner_id,
+            error_code=row.error_code,
+        )

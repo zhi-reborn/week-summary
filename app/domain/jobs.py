@@ -9,3 +9,11 @@ class JobStep:
     entity_id: str
     status: str
     error_code: str | None
+
+
+@dataclass(frozen=True)
+class AnalysisJob:
+    task_id: str
+    status: str
+    owner_id: str | None
+    error_code: str | None

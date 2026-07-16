@@ -41,7 +41,7 @@ class SectionGenerationService:
         if isinstance(section, str):
             section = self._load_section(task_id, section)
         all_facts = FactRepository(self._session).list_by_task(task_id)
-        candidates = [fact for fact in all_facts if fact.kind in _allowed_kinds(section)]
+        candidates = [fact for fact in all_facts if fact.kind in section_allowed_kinds(section)]
         generated = self._llm.generate_section(section, candidates, instruction)
         self._validate_generated(task_id, section, candidates, generated)
 
@@ -105,7 +105,7 @@ class SectionGenerationService:
             raise ValueError("生成结果引用了未知来源")
 
 
-def _allowed_kinds(section: TemplateSection) -> set[FactKind]:
+def section_allowed_kinds(section: TemplateSection) -> set[FactKind]:
     if section.allowed_fact_kinds:
         return set(section.allowed_fact_kinds)
     text = f"{section.name} {section.instruction}".casefold()

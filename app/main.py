@@ -7,6 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from app.api.errors import ApiError, api_error_handler
+from app.api.routes.analysis import router as analysis_router
 from app.api.routes.health import router as health_router
 from app.api.routes.people import router as people_router
 from app.api.routes.settings import router as settings_router
@@ -32,6 +33,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(people_router)
     application.include_router(templates_router)
     application.include_router(settings_router)
+    application.include_router(analysis_router)
     static_dir = _static_dir()
     if (static_dir / "index.html").is_file():
 
