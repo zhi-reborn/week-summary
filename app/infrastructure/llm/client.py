@@ -4,6 +4,10 @@ from typing import Any
 import httpx
 
 from app.domain.model_settings import ModelCapabilities
+from app.domain.facts import PersonExtraction
+from app.domain.people import PersonSegment
+from app.infrastructure.llm.prompts import build_person_extraction_messages, build_repair_messages
+from app.infrastructure.llm.schemas import InvalidStructuredResponse, parse_person_extraction
 
 
 class LLMConnectionError(Exception):
@@ -20,12 +24,14 @@ class OpenAICompatibleClient:
         model: str,
         api_key: str | None,
         timeout_seconds: int = 120,
+        temperature: float = 0.1,
         transport: httpx.BaseTransport | None = None,
     ) -> None:
         self._url = f"{base_url.rstrip('/')}/chat/completions"
         self._model = model
         self._api_key = api_key
         self._timeout = timeout_seconds
+        self._temperature = temperature
         self._transport = transport
 
     def test_connection(self) -> ModelCapabilities:
@@ -46,6 +52,28 @@ class OpenAICompatibleClient:
             json_mode=json_mode,
             message=message,
         )
+
+    def extract_person(self, person: PersonSegment) -> PersonExtraction:
+        raw = self._complete(build_person_extraction_messages(person))
+        try:
+            return parse_person_extraction(raw)
+        except InvalidStructuredResponse:
+            repaired = self._complete(build_repair_messages(raw))
+            return parse_person_extraction(repaired)
+
+    def _complete(self, messages: list[dict[str, str]]) -> str:
+        payload: dict[str, Any] = {
+            "model": self._model,
+            "temperature": self._temperature,
+            "messages": messages,
+            "response_format": {"type": "json_object"},
+        }
+        response = self._send(payload)
+        if response.status_code == 400 and "response_format" in response.text.lower():
+            payload.pop("response_format")
+            response = self._send(payload)
+        self._raise_for_status(response)
+        return self._message_content(response)
 
     def _send(self, payload: dict[str, Any]) -> httpx.Response:
         headers = {"Content-Type": "application/json"}
@@ -78,16 +106,25 @@ class OpenAICompatibleClient:
             raise LLMConnectionError("AUTH_FAILED", "模型认证失败")
         if response.status_code == 404:
             raise LLMConnectionError("MODEL_NOT_FOUND", "模型或接口不存在")
-        raise LLMConnectionError("MODEL_REQUEST_REJECTED", "模型拒绝了能力测试请求")
+        raise LLMConnectionError("MODEL_REQUEST_REJECTED", "模型拒绝了请求")
 
     @staticmethod
     def _parse_message_json(response: httpx.Response) -> dict[str, Any]:
+        content = OpenAICompatibleClient._message_content(response)
         try:
-            payload = response.json()
-            content = payload["choices"][0]["message"]["content"]
             parsed = json.loads(content)
-        except (ValueError, KeyError, IndexError, TypeError) as exc:
+        except (ValueError, TypeError) as exc:
             raise LLMConnectionError("INVALID_MODEL_RESPONSE", "模型响应不是有效 JSON") from exc
         if not isinstance(parsed, dict):
             raise LLMConnectionError("INVALID_MODEL_RESPONSE", "模型响应必须是 JSON 对象")
         return parsed
+
+    @staticmethod
+    def _message_content(response: httpx.Response) -> str:
+        try:
+            content = response.json()["choices"][0]["message"]["content"]
+        except (ValueError, KeyError, IndexError, TypeError) as exc:
+            raise LLMConnectionError("INVALID_MODEL_RESPONSE", "模型响应结构无效") from exc
+        if not isinstance(content, str):
+            raise LLMConnectionError("INVALID_MODEL_RESPONSE", "模型响应内容必须是文本")
+        return content
