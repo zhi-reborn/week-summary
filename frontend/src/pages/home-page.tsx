@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 export function HomePage() {
   return (
     <main className="home-page page-shell">
-      <div className="issue-mark">WEEKLY / LOCAL / 01</div>
+      <div className="home-nav"><div className="issue-mark">WEEKLY / LOCAL / 01</div><Link to="/settings">模型设置</Link></div>
       <section className="hero-grid">
         <div>
           <p className="eyebrow">私有模型 · 本地文件 · Word 原版式</p>
