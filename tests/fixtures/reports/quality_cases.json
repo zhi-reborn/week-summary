@@ -1,0 +1,23 @@
+[
+  {
+    "name": "unknown person",
+    "text": "王五完成上线",
+    "known_people": ["张三", "李四"],
+    "sources": [],
+    "expected_codes": ["UNKNOWN_PERSON"]
+  },
+  {
+    "name": "unsourced percentage",
+    "text": "覆盖率达到 95%",
+    "known_people": ["张三"],
+    "sources": ["覆盖率达到 90%"],
+    "expected_codes": ["UNSOURCED_NUMBER"]
+  },
+  {
+    "name": "normalized sourced date and percentage",
+    "text": "计划于２０２６年７月１６日完成，覆盖率 ９０％",
+    "known_people": ["张三"],
+    "sources": ["计划于2026年7月16日完成，覆盖率 90%"],
+    "expected_codes": []
+  }
+]
