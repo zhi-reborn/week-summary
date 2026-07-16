@@ -1,0 +1,2 @@
+"""Weekly report assistant application."""
+
