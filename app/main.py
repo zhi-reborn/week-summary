@@ -4,6 +4,7 @@ from sqlalchemy.orm import sessionmaker
 
 from app.api.errors import ApiError, api_error_handler
 from app.api.routes.health import router as health_router
+from app.api.routes.people import router as people_router
 from app.api.routes.tasks import router as tasks_router
 from app.config import Settings
 
@@ -17,6 +18,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.add_exception_handler(ApiError, api_error_handler)
     application.include_router(health_router)
     application.include_router(tasks_router)
+    application.include_router(people_router)
     return application
 
 

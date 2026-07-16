@@ -1,4 +1,5 @@
 import os
+from io import BytesIO
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import BinaryIO
@@ -22,11 +23,27 @@ class TaskStorage:
         input_dir = self._tasks_dir / task_id / "input"
         input_dir.mkdir(parents=True, exist_ok=True)
         destination = input_dir / stored_name
+        return self._write_stream(destination, stream, max_bytes)
+
+    def read_input(self, task_id: str, stored_name: str) -> bytes:
+        return (self._tasks_dir / task_id / "input" / stored_name).read_bytes()
+
+    def write_result(self, task_id: str, stored_name: str, data: bytes) -> Path:
+        result_dir = self._tasks_dir / task_id / "result"
+        result_dir.mkdir(parents=True, exist_ok=True)
+        return self._write_stream(result_dir / stored_name, BytesIO(data), len(data))
+
+    def read_result(self, task_id: str, stored_name: str) -> bytes:
+        return (self._tasks_dir / task_id / "result" / stored_name).read_bytes()
+
+    @staticmethod
+    def _write_stream(destination: Path, stream: BinaryIO, max_bytes: int) -> Path:
+        destination.parent.mkdir(parents=True, exist_ok=True)
         total = 0
         temporary_path: Path | None = None
 
         try:
-            with NamedTemporaryFile(dir=input_dir, delete=False) as temporary:
+            with NamedTemporaryFile(dir=destination.parent, delete=False) as temporary:
                 temporary_path = Path(temporary.name)
                 while chunk := stream.read(1024 * 1024):
                     total += len(chunk)
