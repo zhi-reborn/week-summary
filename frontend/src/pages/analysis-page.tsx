@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import { api } from "../api/client";
 import type { AnalysisProgress } from "../api/types";
@@ -129,7 +129,7 @@ export function AnalysisPage({ taskId }: { taskId: string }) {
           ))}
         </ol>
       </section>
-      {progress?.task_status === "review" ? <p className="analysis-ready">分析完成，内容已进入审核阶段。</p> : null}
+      {progress?.task_status === "review" ? <p className="analysis-ready">分析完成，内容已进入审核阶段。<Link to={`/tasks/${taskId}/review`}>进入内容校审</Link></p> : null}
     </main>
   );
 }
