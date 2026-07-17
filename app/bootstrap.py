@@ -32,6 +32,7 @@ def main() -> None:
         create_llm,
     )
     runner = AnalysisRunner(application.state.session_factory, pipeline)
+    application.state.llm_factory = create_llm
     application.state.runner = runner
     runner.start()
     try:

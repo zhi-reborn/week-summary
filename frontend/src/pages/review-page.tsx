@@ -19,6 +19,7 @@ export function ReviewPage({ taskId }: { taskId: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [undoRevisions, setUndoRevisions] = useState<Record<string, number>>({});
   const sourceButtonRef = useRef<HTMLButtonElement>(null);
 
   const selected = sections.find((section) => section.section_key === selectedKey) ?? null;
@@ -110,6 +111,45 @@ export function ReviewPage({ taskId }: { taskId: string }) {
     }
   }
 
+  async function regenerate(instruction: string) {
+    if (!selected) return;
+    const previousRevision = selected.revision;
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await reviewApi.regenerate(taskId, selected.section_key, instruction);
+      setUndoRevisions((current) => ({ ...current, [selected.section_key]: previousRevision }));
+      replaceSection(updated);
+      setNotice(`已重新生成 ${selected.name}，保存为版本 ${updated.revision}`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "重新生成失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function undoGeneration() {
+    if (!selected) return;
+    const revision = undoRevisions[selected.section_key];
+    if (!revision) return;
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await reviewApi.restore(taskId, selected.section_key, revision);
+      replaceSection(updated);
+      setUndoRevisions((current) => {
+        const next = { ...current };
+        delete next[selected.section_key];
+        return next;
+      });
+      setNotice(`已撤销本次生成，保存为版本 ${updated.revision}`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "撤销失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function closeSources() {
     setSourcesOpen(false);
     window.requestAnimationFrame(() => sourceButtonRef.current?.focus());
@@ -126,7 +166,17 @@ export function ReviewPage({ taskId }: { taskId: string }) {
       <div className="review-grid">
         <SectionNavigator sections={sections} selectedKey={selectedKey} onSelect={selectSection} />
         {selected ? (
-          <SectionEditor section={selected} draft={draft} busy={busy} onChange={setDraft} onSave={save} onConfirm={confirm} />
+          <SectionEditor
+            section={selected}
+            draft={draft}
+            busy={busy}
+            canUndo={Boolean(undoRevisions[selected.section_key])}
+            onChange={setDraft}
+            onSave={save}
+            onConfirm={confirm}
+            onRegenerate={regenerate}
+            onUndo={undoGeneration}
+          />
         ) : <section className="review-editor review-loading">正在装订校审稿…</section>}
         <aside className="review-sidebar">
           {selected ? <>

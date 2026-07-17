@@ -36,6 +36,10 @@ export const reviewApi = {
   restore: (taskId: string, sectionKey: string, revision: number) => api<ReviewSection>(
     `/api/tasks/${taskId}/sections/${sectionKey}/restore/${revision}`, { method: "POST" },
   ),
+  regenerate: (taskId: string, sectionKey: string, instruction: string) => api<ReviewSection>(
+    `/api/tasks/${taskId}/sections/${sectionKey}/regenerate`,
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ instruction }) },
+  ),
   sources: (taskId: string, sectionKey: string) => api<ReviewSource[]>(
     `/api/tasks/${taskId}/sections/${sectionKey}/sources`,
   ),

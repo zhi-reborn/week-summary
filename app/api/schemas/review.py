@@ -16,6 +16,10 @@ class UpdateSectionRequest(BaseModel):
         return value
 
 
+class RegenerateSectionRequest(BaseModel):
+    instruction: str = Field(default="", max_length=2000)
+
+
 class ReviewSectionResponse(BaseModel):
     section_key: str
     name: str

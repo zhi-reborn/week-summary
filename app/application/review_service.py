@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.domain.enums import TaskStatus
 from app.domain.review import SectionReview, SectionVersion
 from app.domain.template import TemplateSection
+from app.application.section_generation_service import SectionGenerationService, SectionGenerator
 from app.infrastructure.db.repositories import (
     FactRepository,
     PeopleRepository,
@@ -120,6 +121,24 @@ class ReviewService:
                 )
             )
         return results
+
+    def regenerate_section(
+        self,
+        task_id: str,
+        section_key: str,
+        instruction: str,
+        generator: SectionGenerator,
+        editor: str,
+    ) -> ReviewSectionData:
+        self._require_editable(task_id)
+        current = self.get_section(task_id, section_key)
+        generated = SectionGenerationService(
+            self._session, self._storage, generator
+        ).regenerate(task_id, current.section, instruction)
+        saved = SectionReviewRepository(self._session).save(
+            task_id, current.review.revise(generated.generated.body, editor)
+        )
+        return ReviewSectionData(current.section, saved, generated)
 
     def _get_data(self, task_id: str, section: TemplateSection) -> ReviewSectionData:
         generated = SectionVersionRepository(self._session).latest(task_id, section.id)
