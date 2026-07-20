@@ -17,3 +17,4 @@ class AnalysisJob:
     status: str
     owner_id: str | None
     error_code: str | None
+    recovery_attempts: int

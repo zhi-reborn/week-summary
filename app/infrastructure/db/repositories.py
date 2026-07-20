@@ -72,6 +72,12 @@ class TaskRepository:
     def count(self) -> int:
         return int(self._session.scalar(select(func.count()).select_from(TaskRow)) or 0)
 
+    def list_by_status(self, status: TaskStatus) -> list[Task]:
+        rows = self._session.scalars(
+            select(TaskRow).where(TaskRow.status == status.value).order_by(TaskRow.created_at)
+        )
+        return [self._to_domain(row) for row in rows]
+
     def delete_with_dependents(self, task_id: str) -> None:
         for model in (
             QualityFindingRow,
@@ -473,12 +479,13 @@ class AnalysisJobRepository:
     def enqueue(self, task_id: str) -> AnalysisJob:
         row = self._session.get(AnalysisJobRow, task_id)
         if row is None:
-            row = AnalysisJobRow(task_id=task_id, status="queued")
+            row = AnalysisJobRow(task_id=task_id, status="queued", recovery_attempts=0)
             self._session.add(row)
         else:
             row.status = "queued"
             row.owner_id = None
             row.error_code = None
+            row.recovery_attempts = 0
             row.updated_at = datetime.now(timezone.utc)
         self._session.flush()
         return self._to_domain(row)
@@ -527,18 +534,31 @@ class AnalysisJobRepository:
     def mark_failed(self, task_id: str, error_code: str) -> AnalysisJob:
         return self._set_status(task_id, "failed", error_code)
 
-    def requeue_interrupted(self) -> int:
-        result = self._session.execute(
-            update(AnalysisJobRow)
-            .where(AnalysisJobRow.status == "running")
-            .values(
-                status="queued",
-                owner_id=None,
-                error_code=None,
-                updated_at=datetime.now(timezone.utc),
+    def recover_interrupted(self, max_attempts: int) -> tuple[list[str], list[str]]:
+        rows = list(
+            self._session.scalars(
+                select(AnalysisJobRow)
+                .where(AnalysisJobRow.status == "running")
+                .order_by(AnalysisJobRow.updated_at)
             )
         )
-        return int(getattr(result, "rowcount", 0))
+        requeued: list[str] = []
+        exhausted: list[str] = []
+        now = datetime.now(timezone.utc)
+        for row in rows:
+            row.recovery_attempts += 1
+            row.owner_id = None
+            row.updated_at = now
+            if row.recovery_attempts >= max_attempts:
+                row.status = "failed"
+                row.error_code = "RECOVERY_RETRY_EXHAUSTED"
+                exhausted.append(row.task_id)
+            else:
+                row.status = "queued"
+                row.error_code = None
+                requeued.append(row.task_id)
+        self._session.flush()
+        return requeued, exhausted
 
     def _set_status(self, task_id: str, status: str, error_code: str | None) -> AnalysisJob:
         row = self._session.get(AnalysisJobRow, task_id)
@@ -558,4 +578,5 @@ class AnalysisJobRepository:
             status=row.status,
             owner_id=row.owner_id,
             error_code=row.error_code,
+            recovery_attempts=row.recovery_attempts,
         )

@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     max_docx_uncompressed_bytes: int = 100 * 1024 * 1024
     max_docx_compression_ratio: int = 100
     retention_days: int | None = Field(default=None, ge=1)
+    max_recovery_attempts: int = Field(default=3, ge=1, le=10)
 
     @property
     def database_url(self) -> str:

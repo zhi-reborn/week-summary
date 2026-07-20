@@ -51,7 +51,12 @@ class AnalysisRunner:
 
     def recover(self) -> None:
         with self._session_factory() as session:
-            AnalysisJobRepository(session).requeue_interrupted()
+            _requeued, exhausted = AnalysisJobRepository(session).recover_interrupted(3)
+            tasks = TaskRepository(session)
+            for task_id in exhausted:
+                task = tasks.get(task_id)
+                if task is not None and task.status == TaskStatus.ANALYZING:
+                    tasks.set_status(task_id, TaskStatus.FAILED)
             session.commit()
 
     def run_once(self) -> bool:

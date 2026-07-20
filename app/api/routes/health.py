@@ -24,7 +24,7 @@ def readiness(
     session: Annotated[Session, Depends(get_session)],
 ) -> JSONResponse:
     checks: dict[str, str] = {}
-    expected_migration = "0006"
+    expected_migration = "0007"
     try:
         bind = session.get_bind()
         if isinstance(bind, Engine):

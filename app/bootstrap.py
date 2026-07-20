@@ -1,7 +1,9 @@
 import uvicorn
 
 from app.application.analysis_pipeline import AnalysisPipeline
+from app.application.export_service import ExportService
 from app.application.settings_service import SettingsService
+from app.application.startup_recovery import StartupRecovery
 from app.config import Settings
 from app.core.logging import close_logging, configure_logging
 from app.infrastructure.files.task_storage import TaskStorage
@@ -34,6 +36,15 @@ def main() -> None:
         create_llm,
     )
     runner = AnalysisRunner(application.state.session_factory, pipeline)
+    StartupRecovery(
+        application.state.session_factory,
+        TaskStorage(settings.data_dir),
+        ExportService(
+            application.state.session_factory,
+            TaskStorage(settings.data_dir),
+        ).export,
+        settings.max_recovery_attempts,
+    ).run()
     application.state.llm_factory = create_llm
     application.state.runner = runner
     runner.start()

@@ -69,6 +69,16 @@ class TaskStorage:
             path.stat().st_size for path in self._tasks_dir.rglob("*") if path.is_file()
         )
 
+    def cleanup_temporary_outputs(self) -> int:
+        if not self._tasks_dir.exists():
+            return 0
+        removed = 0
+        for path in self._tasks_dir.rglob("*.tmp"):
+            if path.is_file() and path.parent.name == "output":
+                path.unlink(missing_ok=True)
+                removed += 1
+        return removed
+
     def _task_dir(self, task_id: str) -> Path:
         return self._safe_child(self._tasks_dir, task_id)
 

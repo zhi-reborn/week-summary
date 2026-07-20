@@ -52,7 +52,7 @@ def test_diagnostic_package_contains_only_redacted_whitelisted_data(tmp_path: Pa
     assert str(tmp_path) not in serialized
     assert "api_key" not in serialized
     assert payload["version"] == "0.1.0"
-    assert payload["database"]["migration_version"] == "0006"
+    assert payload["database"]["migration_version"] == "0007"
     assert payload["configuration"]["model_configured"] is True
     assert payload["configuration"]["model"] == "private-model"
     assert payload["model_connectivity"]["status"] == "not_checked"

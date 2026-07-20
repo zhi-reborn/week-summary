@@ -30,7 +30,7 @@ def test_readiness_checks_database_directory_and_migration(tmp_path: Path) -> No
         "checks": {
             "database": "ok",
             "data_directory": "ok",
-            "migration": "0006",
+            "migration": "0007",
         },
     }
 
@@ -40,7 +40,7 @@ def test_readiness_rejects_outdated_database(tmp_path: Path) -> None:
     migrate_database(settings.database_url)
     application = create_app(settings)
     with application.state.session_factory() as session:
-        session.execute(text("UPDATE alembic_version SET version_num = '0005'"))
+        session.execute(text("UPDATE alembic_version SET version_num = '0006'"))
         session.commit()
 
     response = TestClient(application).get("/api/health/ready")

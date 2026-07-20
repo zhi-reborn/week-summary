@@ -120,6 +120,7 @@ class AnalysisJobRow(Base):
     status: Mapped[str] = mapped_column(String(20))
     owner_id: Mapped[str | None] = mapped_column(String(80), nullable=True)
     error_code: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    recovery_attempts: Mapped[int] = mapped_column(Integer, default=0)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
