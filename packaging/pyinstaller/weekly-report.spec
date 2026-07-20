@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
@@ -12,6 +13,18 @@ datas += collect_data_files("alembic")
 datas += collect_data_files("docx")
 hiddenimports = collect_submodules("uvicorn")
 hiddenimports += collect_submodules("sqlalchemy.dialects.sqlite")
+if sys.platform == "win32":
+    hiddenimports += collect_submodules("win32")
+    hiddenimports += [
+        "app.windows_service",
+        "pythoncom",
+        "pywintypes",
+        "servicemanager",
+        "win32event",
+        "win32service",
+        "win32serviceutil",
+        "win32timezone",
+    ]
 
 a = Analysis(
     [str(ROOT / "app" / "bootstrap.py")],

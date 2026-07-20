@@ -1,3 +1,6 @@
+import os
+import sys
+
 import uvicorn
 
 from app.application.analysis_pipeline import AnalysisPipeline
@@ -14,9 +17,24 @@ from app.migrations import run_migrations
 
 
 def main() -> None:
+    arguments = sys.argv[1:]
+    if os.name == "nt" and arguments[:1] == ["--service"]:
+        from app.windows_service import run_windows_service_command
+
+        run_windows_service_command(arguments[1:])
+        return
+
     settings = Settings()
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     configure_logging(settings.log_dir)
+    if arguments[:1] == ["--migrate"]:
+        try:
+            backup_path = run_migrations(settings)
+            backup = str(backup_path) if backup_path is not None else "not_required"
+            print(f"MIGRATION_OK backup={backup}")
+        finally:
+            close_logging()
+        return
     run_migrations(settings)
     application = create_app(settings)
 
