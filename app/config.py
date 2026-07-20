@@ -1,12 +1,15 @@
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.core.paths import resolve_runtime_paths
 
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="WRA_", extra="ignore")
 
-    data_dir: Path = Path("./data")
+    data_dir: Path = Field(default_factory=lambda: resolve_runtime_paths().data_dir)
     host: str = "127.0.0.1"
     port: int = 8765
     max_upload_bytes: int = 25 * 1024 * 1024
