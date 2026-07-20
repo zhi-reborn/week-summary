@@ -5,7 +5,8 @@ from uuid import uuid4
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
-from app.domain.enums import TaskStatus
+from app.domain.enums import GenerationMode, TaskStatus
+from app.domain.export import ExportRecord
 from app.domain.facts import Fact, PersonExtraction
 from app.domain.jobs import AnalysisJob, JobStep
 from app.domain.people import PersonSegment
@@ -14,6 +15,7 @@ from app.domain.review import GeneratedSection, SectionReview, SectionVersion
 from app.domain.task import Task
 from app.infrastructure.db.models import (
     AnalysisJobRow,
+    ExportRow,
     FactRow,
     FactSourceRow,
     JobStepRow,
@@ -29,8 +31,15 @@ class TaskRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
 
-    def create(self, name: str) -> Task:
-        row = TaskRow(id=str(uuid4()), name=name, status=TaskStatus.DRAFT.value)
+    def create(
+        self, name: str, mode: GenerationMode = GenerationMode.REVIEW
+    ) -> Task:
+        row = TaskRow(
+            id=str(uuid4()),
+            name=name,
+            mode=mode.value,
+            status=TaskStatus.DRAFT.value,
+        )
         self._session.add(row)
         self._session.flush()
         return self._to_domain(row)
@@ -52,9 +61,46 @@ class TaskRepository:
         return Task(
             id=row.id,
             name=row.name,
+            mode=GenerationMode(row.mode),
             status=TaskStatus(row.status),
             created_at=row.created_at,
             updated_at=row.updated_at,
+        )
+
+
+class ExportRepository:
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def save(
+        self, task_id: str, stored_name: str, download_name: str
+    ) -> ExportRecord:
+        row = self._session.get(ExportRow, task_id)
+        if row is None:
+            row = ExportRow(
+                task_id=task_id,
+                stored_name=stored_name,
+                download_name=download_name,
+            )
+            self._session.add(row)
+        else:
+            row.stored_name = stored_name
+            row.download_name = download_name
+            row.created_at = datetime.now(timezone.utc)
+        self._session.flush()
+        return self._to_domain(row)
+
+    def get(self, task_id: str) -> ExportRecord | None:
+        row = self._session.get(ExportRow, task_id)
+        return self._to_domain(row) if row is not None else None
+
+    @staticmethod
+    def _to_domain(row: ExportRow) -> ExportRecord:
+        return ExportRecord(
+            task_id=row.task_id,
+            stored_name=row.stored_name,
+            download_name=row.download_name,
+            created_at=row.created_at,
         )
 
 

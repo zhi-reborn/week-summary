@@ -79,4 +79,24 @@ describe("AnalysisPage", () => {
       { method: "POST" },
     );
   });
+
+  it("offers the generated document when direct mode completes", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({
+      ...failedProgress,
+      task_status: "completed",
+      job_status: "succeeded",
+      total_steps: 4,
+      succeeded_steps: 4,
+      current_step: null,
+      failed_error_code: null,
+      retryable: false,
+    })));
+
+    render(<AnalysisPage taskId="task-1" />);
+
+    expect(await screen.findByRole("link", { name: "下载汇总 Word" })).toHaveAttribute(
+      "href",
+      "/api/tasks/task-1/download",
+    );
+  });
 });

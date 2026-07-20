@@ -1,15 +1,18 @@
 from dataclasses import dataclass, field
+from io import BytesIO
 from pathlib import Path
 
 from pydantic import TypeAdapter
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.application.analysis_pipeline import AnalysisPipeline
+from app.domain.enums import GenerationMode, TaskStatus
 from app.domain.facts import Fact, FactKind, PersonExtraction, SourceRef
 from app.domain.people import PersonSegment
 from app.domain.review import GeneratedSection
 from app.domain.template import RecognitionMethod, TemplateLocator, TemplateSection
 from app.infrastructure.db.repositories import (
+    ExportRepository,
     JobStepRepository,
     PeopleRepository,
     SectionVersionRepository,
@@ -93,3 +96,44 @@ def test_pipeline_persists_all_resumable_stages(db_session: Session, tmp_path: P
         assert SectionVersionRepository(verification).latest(task.id, "progress") is not None
     assert storage.read_result(task.id, "aggregation.json")
     assert storage.read_result(task.id, "coverage.json")
+
+
+def test_direct_pipeline_exports_after_analysis(
+    db_session: Session, tmp_path: Path, valid_docx_bytes: bytes
+) -> None:
+    task = TaskRepository(db_session).create("第29周", mode=GenerationMode.DIRECT)
+    TaskRepository(db_session).set_status(task.id, TaskStatus.ANALYZING)
+    PeopleRepository(db_session).replace_confirmed(
+        task.id,
+        [PersonSegment(id="P01", name="张三", line_start=1, line_end=2, content="完成A")],
+    )
+    section = TemplateSection(
+        id="progress",
+        name="本周重点",
+        method=RecognitionMethod.PLACEHOLDER,
+        confidence=1,
+        locator=TemplateLocator(
+            part="document", paragraph_index=0, token="{{本周重点}}"
+        ),
+    )
+    storage = TaskStorage(tmp_path)
+    storage.write_stream(
+        task.id,
+        "template.docx",
+        BytesIO(valid_docx_bytes),
+        len(valid_docx_bytes),
+    )
+    storage.write_result(
+        task.id,
+        "template_sections.json",
+        TypeAdapter(list[TemplateSection]).dump_json([section]),
+    )
+    db_session.commit()
+    factory = sessionmaker(db_session.get_bind(), expire_on_commit=False)
+
+    AnalysisPipeline(factory, storage, PipelineLLMStub).run(task.id)
+
+    with factory() as verification:
+        assert TaskRepository(verification).get(task.id).status == TaskStatus.COMPLETED
+        assert ExportRepository(verification).get(task.id) is not None
+    assert storage.output_path(task.id, "weekly-report.docx").is_file()

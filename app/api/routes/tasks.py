@@ -9,6 +9,7 @@ from app.application.task_service import TaskService
 from app.infrastructure.files.safe_upload import safe_filename
 from app.infrastructure.files.task_storage import FileTooLarge, TaskStorage
 from app.domain.task import Task
+from app.domain.enums import GenerationMode
 from sqlalchemy.orm import Session
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
@@ -16,6 +17,7 @@ router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
 class CreateTaskRequest(BaseModel):
     name: str = Field(min_length=1, max_length=200)
+    mode: GenerationMode = GenerationMode.REVIEW
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
@@ -27,7 +29,7 @@ def create_task(
     settings = request.app.state.settings
     task = TaskService(
         session, TaskStorage(settings.data_dir), settings.max_upload_bytes
-    ).create(payload.name)
+    ).create(payload.name, payload.mode)
     return _serialize_task(task)
 
 
@@ -82,4 +84,9 @@ def _validate_filename(upload: UploadFile, suffix: str) -> str:
 
 
 def _serialize_task(task: Task) -> dict[str, str]:
-    return {"id": task.id, "name": task.name, "status": task.status.value}
+    return {
+        "id": task.id,
+        "name": task.name,
+        "mode": task.mode.value,
+        "status": task.status.value,
+    }

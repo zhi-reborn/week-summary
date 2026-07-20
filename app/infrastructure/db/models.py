@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Boolean, CheckConstraint, DateTime, Float, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.domain.enums import TaskStatus
+from app.domain.enums import GenerationMode, TaskStatus
 from app.infrastructure.db.base import Base
 
 
@@ -12,6 +12,7 @@ class TaskRow(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
     name: Mapped[str] = mapped_column(String(200))
+    mode: Mapped[str] = mapped_column(String(20), default=GenerationMode.REVIEW.value)
     status: Mapped[str] = mapped_column(String(40), default=TaskStatus.DRAFT.value)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
@@ -135,6 +136,17 @@ class SectionReviewRow(Base):
     content: Mapped[str] = mapped_column(Text)
     confirmed: Mapped[bool] = mapped_column(Boolean, default=False)
     editor: Mapped[str] = mapped_column(String(80))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class ExportRow(Base):
+    __tablename__ = "exports"
+
+    task_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    stored_name: Mapped[str] = mapped_column(String(200))
+    download_name: Mapped[str] = mapped_column(String(200))
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )

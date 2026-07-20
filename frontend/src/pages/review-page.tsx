@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 
+import { api } from "../api/client";
 import { reviewApi, type ReviewSection, type ReviewSource } from "../api/review";
 import { ErrorBanner } from "../components/error-banner";
 import { RiskPanel } from "../features/review/risk-panel";
@@ -19,10 +20,12 @@ export function ReviewPage({ taskId }: { taskId: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [downloadName, setDownloadName] = useState("");
   const [undoRevisions, setUndoRevisions] = useState<Record<string, number>>({});
   const sourceButtonRef = useRef<HTMLButtonElement>(null);
 
   const selected = sections.find((section) => section.section_key === selectedKey) ?? null;
+  const allConfirmed = sections.length > 0 && sections.every((section) => section.confirmed);
 
   useEffect(() => {
     let active = true;
@@ -150,6 +153,23 @@ export function ReviewPage({ taskId }: { taskId: string }) {
     }
   }
 
+  async function exportDocument() {
+    setBusy(true);
+    setError("");
+    try {
+      const result = await api<{ status: string; download_name: string }>(
+        `/api/tasks/${taskId}/export`,
+        { method: "POST" },
+      );
+      setDownloadName(result.download_name);
+      setNotice("Word 汇总文件已生成并通过完整性校验");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "生成 Word 失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function closeSources() {
     setSourcesOpen(false);
     window.requestAnimationFrame(() => sourceButtonRef.current?.focus());
@@ -159,7 +179,16 @@ export function ReviewPage({ taskId }: { taskId: string }) {
     <main className="review-workspace">
       <header className="review-header">
         <div><p className="eyebrow">Review desk / Local draft</p><h1>周报校审台</h1></div>
-        <p>{sections.filter((section) => section.confirmed).length} / {sections.length} 个板块已确认</p>
+        <div className="review-export">
+          <p>{sections.filter((section) => section.confirmed).length} / {sections.length} 个板块已确认</p>
+          {downloadName ? (
+            <a className="primary-action" href={`/api/tasks/${taskId}/download`}>下载{downloadName}</a>
+          ) : (
+            <button className="primary-action" disabled={!allConfirmed || busy} onClick={exportDocument} type="button">
+              {busy ? "正在生成…" : "生成并下载 Word"}
+            </button>
+          )}
+        </div>
       </header>
       {error ? <div className="review-message"><ErrorBanner message={error} /></div> : null}
       {notice ? <p className="review-message success-banner">{notice}</p> : null}

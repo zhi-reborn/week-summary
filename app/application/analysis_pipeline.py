@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.application.aggregation_service import AggregationService
 from app.application.analysis_service import AnalysisService, PersonExtractor
+from app.application.export_service import ExportService
 from app.application.quality_service import QualityService
 from app.application.section_generation_service import (
     SectionGenerationService,
@@ -13,11 +14,13 @@ from app.application.section_generation_service import (
     section_allowed_kinds,
 )
 from app.domain.quality import CoverageCell
+from app.domain.enums import GenerationMode
 from app.domain.template import TemplateSection
 from app.infrastructure.db.repositories import (
     FactRepository,
     PeopleRepository,
     SectionVersionRepository,
+    TaskRepository,
 )
 from app.infrastructure.files.task_storage import TaskStorage
 from app.infrastructure.jobs.steps import run_persisted_step
@@ -47,6 +50,16 @@ class AnalysisPipeline:
         for section in sections:
             self._generate_section(task_id, section, llm)
         self._build_coverage(task_id, sections)
+        self._export_direct_task(task_id)
+
+    def _export_direct_task(self, task_id: str) -> None:
+        with self._session_factory() as session:
+            task = TaskRepository(session).get(task_id)
+            if task is None:
+                raise LookupError("任务不存在")
+            direct = task.mode == GenerationMode.DIRECT
+        if direct:
+            ExportService(self._session_factory, self._storage).export(task_id)
 
     def _aggregate(self, task_id: str) -> None:
         with self._session_factory() as session:

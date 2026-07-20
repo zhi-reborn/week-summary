@@ -9,6 +9,7 @@ import { Stepper } from "../components/stepper";
 export function UploadPage() {
   const navigate = useNavigate();
   const [name, setName] = useState("");
+  const [mode, setMode] = useState<"review" | "direct">("review");
   const [reports, setReports] = useState<File | null>(null);
   const [template, setTemplate] = useState<File | null>(null);
   const [error, setError] = useState("");
@@ -21,7 +22,7 @@ export function UploadPage() {
     setError("");
     try {
       const task = await api<Task>("/api/tasks", {
-        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }),
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, mode }),
       });
       const data = new FormData();
       data.append("reports", reports);
@@ -43,6 +44,17 @@ export function UploadPage() {
       {error ? <ErrorBanner message={error} /> : null}
       <form className="paper-form" onSubmit={submit}>
         <label>汇总名称<input required value={name} onChange={(event) => setName(event.target.value)} placeholder="例如：第 29 周团队周报" /></label>
+        <fieldset className="mode-options">
+          <legend>生成方式</legend>
+          <label>
+            <input type="radio" name="mode" value="review" checked={mode === "review"} onChange={() => setMode("review")} />
+            <span><strong>校审后生成</strong><small>逐板块核对、修改并确认后生成 Word</small></span>
+          </label>
+          <label>
+            <input type="radio" name="mode" value="direct" checked={mode === "direct"} onChange={() => setMode("direct")} />
+            <span><strong>直接生成</strong><small>分析完成后自动生成 Word，可直接下载</small></span>
+          </label>
+        </fieldset>
         <label>合并周报 TXT<input required type="file" accept=".txt" onChange={(event) => setReports(event.target.files?.[0] ?? null)} /></label>
         <label>Word 模板 DOCX<input required type="file" accept=".docx" onChange={(event) => setTemplate(event.target.files?.[0] ?? null)} /></label>
         <button className="primary-action" disabled={busy || !reports || !template} type="submit">{busy ? "正在解析…" : "上传并识别人员"}</button>
@@ -50,4 +62,3 @@ export function UploadPage() {
     </main>
   );
 }
-

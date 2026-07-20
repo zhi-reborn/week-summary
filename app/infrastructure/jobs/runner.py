@@ -79,9 +79,14 @@ class AnalysisRunner:
             task = TaskRepository(session).get(job.task_id)
             if task is None:
                 raise LookupError("任务不存在")
-            TaskRepository(session).set_status(
-                job.task_id, transition(task.status, TaskStatus.REVIEW)
-            )
+            if task.status == TaskStatus.ANALYZING:
+                TaskRepository(session).set_status(
+                    job.task_id, transition(task.status, TaskStatus.REVIEW)
+                )
+            elif task.status != TaskStatus.COMPLETED:
+                raise RuntimeError(
+                    f"analysis processor ended in unexpected status: {task.status.value}"
+                )
             session.commit()
         return True
 

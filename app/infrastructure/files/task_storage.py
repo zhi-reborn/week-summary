@@ -39,6 +39,12 @@ class TaskStorage:
     def read_result(self, task_id: str, stored_name: str) -> bytes:
         return (self._tasks_dir / task_id / "result" / stored_name).read_bytes()
 
+    def output_path(self, task_id: str, stored_name: str, *, create: bool = False) -> Path:
+        output_dir = self._tasks_dir / task_id / "output"
+        if create:
+            output_dir.mkdir(parents=True, exist_ok=True)
+        return output_dir / stored_name
+
     @staticmethod
     def _write_stream(destination: Path, stream: BinaryIO, max_bytes: int) -> Path:
         destination.parent.mkdir(parents=True, exist_ok=True)

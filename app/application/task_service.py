@@ -3,7 +3,7 @@ from typing import BinaryIO
 
 from sqlalchemy.orm import Session
 
-from app.domain.enums import TaskStatus
+from app.domain.enums import GenerationMode, TaskStatus
 from app.domain.task import Task
 from app.infrastructure.db.repositories import TaskRepository
 from app.infrastructure.files.task_storage import TaskStorage
@@ -15,8 +15,10 @@ class TaskService:
         self._storage = storage
         self._max_upload_bytes = max_upload_bytes
 
-    def create(self, name: str) -> Task:
-        return self._repository.create(name)
+    def create(
+        self, name: str, mode: GenerationMode = GenerationMode.REVIEW
+    ) -> Task:
+        return self._repository.create(name, mode)
 
     def get(self, task_id: str) -> Task | None:
         return self._repository.get(task_id)
@@ -37,4 +39,3 @@ class TaskService:
         )
         task = self._repository.set_status(task_id, TaskStatus.PEOPLE_CONFIRMATION)
         return reports_path, template_path, task
-

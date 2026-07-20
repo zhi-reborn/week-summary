@@ -71,4 +71,24 @@ describe("ReviewPage", () => {
     expect(await screen.findByText("保存失败")).toBeInTheDocument();
     await waitFor(() => expect(editor).toHaveValue("尚未保存的人工内容"));
   });
+
+  it("exports after every section is confirmed", async () => {
+    const confirmed = { ...section, confirmed: true };
+    const fetchMock = vi.fn().mockImplementation((path: string, init?: RequestInit) => {
+      if (path.endsWith("/versions")) return Promise.resolve(response([confirmed]));
+      if (path.endsWith("/export") && init?.method === "POST") {
+        return Promise.resolve(response({ status: "completed", download_name: "周报汇总.docx" }));
+      }
+      return Promise.resolve(response([confirmed]));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ReviewPage taskId="task-1" />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "生成并下载 Word" }));
+
+    expect(await screen.findByRole("link", { name: "下载周报汇总.docx" })).toHaveAttribute(
+      "href",
+      "/api/tasks/task-1/download",
+    );
+  });
 });

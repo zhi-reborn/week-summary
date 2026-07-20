@@ -7,9 +7,19 @@ class InvalidTransition(ValueError):
 
 _ALLOWED = {
     TaskStatus.READY_FOR_ANALYSIS: {TaskStatus.ANALYZING},
-    TaskStatus.ANALYZING: {TaskStatus.REVIEW, TaskStatus.FAILED},
+    TaskStatus.ANALYZING: {
+        TaskStatus.REVIEW,
+        TaskStatus.EXPORTING,
+        TaskStatus.FAILED,
+    },
     TaskStatus.FAILED: {TaskStatus.ANALYZING},
-    TaskStatus.REVIEW: {TaskStatus.COMPLETED, TaskStatus.FAILED},
+    TaskStatus.REVIEW: {
+        TaskStatus.EXPORTING,
+        TaskStatus.COMPLETED,
+        TaskStatus.FAILED,
+    },
+    TaskStatus.EXPORTING: {TaskStatus.COMPLETED, TaskStatus.EXPORT_FAILED},
+    TaskStatus.EXPORT_FAILED: {TaskStatus.EXPORTING},
 }
 
 

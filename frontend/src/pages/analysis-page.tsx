@@ -130,6 +130,7 @@ export function AnalysisPage({ taskId }: { taskId: string }) {
         </ol>
       </section>
       {progress?.task_status === "review" ? <p className="analysis-ready">分析完成，内容已进入审核阶段。<Link to={`/tasks/${taskId}/review`}>进入内容校审</Link></p> : null}
+      {progress?.task_status === "completed" ? <p className="analysis-ready">汇总文件已生成并通过校验。<a href={`/api/tasks/${taskId}/download`}>下载汇总 Word</a></p> : null}
     </main>
   );
 }

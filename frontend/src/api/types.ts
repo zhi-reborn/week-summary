@@ -1,4 +1,4 @@
-export type Task = { id: string; name: string; status: string };
+export type Task = { id: string; name: string; mode: "review" | "direct"; status: string };
 export type SourceSpan = { line_start: number; line_end: number; text: string };
 export type PersonSegment = {
   id: string;
