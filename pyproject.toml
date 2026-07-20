@@ -19,6 +19,9 @@ dependencies = [
   "uvicorn>=0.32,<1",
 ]
 
+[project.scripts]
+weekly-report-assistant = "app.bootstrap:main"
+
 [project.optional-dependencies]
 dev = [
   "mypy>=1.13,<2",

@@ -1,5 +1,4 @@
 import argparse
-import os
 import platform
 import subprocess
 import sys
@@ -18,20 +17,12 @@ def main() -> None:
     if arguments.platform and arguments.platform != current:
         raise SystemExit(f"PyInstaller 不支持交叉编译：当前为 {current}，不能构建 {arguments.platform}")
 
-    subprocess.run([sys.executable, str(ROOT / "scripts" / "build_frontend.py")], check=True)
-    environment = os.environ.copy()
-    environment["PYINSTALLER_CONFIG_DIR"] = str(ROOT / "build" / "pyinstaller-cache")
     subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "PyInstaller",
-            "--noconfirm",
-            "--clean",
-            str(ROOT / "packaging" / "pyinstaller" / "weekly-report.spec"),
-        ],
-        cwd=ROOT,
-        env=environment,
+        [sys.executable, str(ROOT / "scripts" / "build_frontend.py")],
+        check=True,
+    )
+    subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "build_backend.py")],
         check=True,
     )
 

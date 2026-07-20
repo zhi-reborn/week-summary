@@ -5,11 +5,13 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 ROOT = Path(SPECPATH).parents[1]
 datas = [
-    (str(ROOT / "app" / "static"), "app/static"),
+    (str(ROOT / "app" / "web" / "dist"), "app/web/dist"),
     (str(ROOT / "alembic"), "alembic"),
 ]
 datas += collect_data_files("alembic")
+datas += collect_data_files("docx")
 hiddenimports = collect_submodules("uvicorn")
+hiddenimports += collect_submodules("sqlalchemy.dialects.sqlite")
 
 a = Analysis(
     [str(ROOT / "app" / "bootstrap.py")],
@@ -35,7 +37,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=True,
 )
 coll = COLLECT(
@@ -43,7 +45,7 @@ coll = COLLECT(
     a.binaries,
     a.datas,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     name="weekly-report-assistant",
 )

@@ -14,7 +14,7 @@ def main() -> None:
     subprocess.run([npm, "ci"], cwd=frontend, check=True)
     subprocess.run([npm, "run", "build"], cwd=frontend, check=True)
 
-    target = ROOT / "app" / "static"
+    target = ROOT / "app" / "web" / "dist"
     if target.exists():
         shutil.rmtree(target)
     shutil.copytree(frontend / "dist", target)

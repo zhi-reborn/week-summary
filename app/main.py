@@ -4,8 +4,7 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Request, Response
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, Request, Response
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
@@ -22,11 +21,12 @@ from app.api.routes.tasks import router as tasks_router
 from app.api.routes.templates import router as templates_router
 from app.config import Settings
 from app.core.logging import log_event
+from app.web.static_app import mount_static_app
 
 
 def _static_dir() -> Path:
     bundle_root = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parents[1]))
-    return bundle_root / "app" / "static"
+    return bundle_root / "app" / "web" / "dist"
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -89,17 +89,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     application.include_router(downloads_router)
     application.include_router(data_management_router)
     application.include_router(diagnostics_router)
-    static_dir = _static_dir()
-    if (static_dir / "index.html").is_file():
-
-        @application.get("/{full_path:path}", include_in_schema=False)
-        def serve_frontend(full_path: str) -> FileResponse:
-            if full_path == "api" or full_path.startswith("api/"):
-                raise HTTPException(status_code=404)
-            candidate = (static_dir / full_path).resolve()
-            if candidate.is_relative_to(static_dir.resolve()) and candidate.is_file():
-                return FileResponse(candidate)
-            return FileResponse(static_dir / "index.html")
+    mount_static_app(application, _static_dir())
 
     return application
 
