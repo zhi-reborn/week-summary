@@ -8,6 +8,7 @@ const section = {
   name: "本周进展",
   revision: 1,
   content: "张三完成项目 A",
+  required: true,
   confirmed: false,
   editor: "local-user",
   created_at: "2026-07-16T08:00:00Z",
@@ -90,5 +91,21 @@ describe("ReviewPage", () => {
       "href",
       "/api/tasks/task-1/download",
     );
+  });
+
+  it("allows export when only optional sections are unconfirmed", async () => {
+    const optional = { ...section, required: false };
+    const fetchMock = vi.fn().mockImplementation((path: string, init?: RequestInit) => {
+      if (path.endsWith("/versions")) return Promise.resolve(response([optional]));
+      if (path.endsWith("/export") && init?.method === "POST") {
+        return Promise.resolve(response({ status: "completed", download_name: "周报汇总.docx" }));
+      }
+      return Promise.resolve(response([optional]));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ReviewPage taskId="task-1" />);
+
+    const button = await screen.findByRole("button", { name: "生成并下载 Word" });
+    expect(button).toBeEnabled();
   });
 });

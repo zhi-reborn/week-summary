@@ -55,3 +55,17 @@ def test_download_requires_recorded_export(client: TestClient) -> None:
 
     assert response.status_code == 404
     assert response.json()["code"] == "EXPORT_NOT_FOUND"
+
+
+def test_optional_section_does_not_require_confirmation(client: TestClient) -> None:
+    task_id = create_exportable_task(
+        client.app.state.session_factory,
+        client.app.state.settings.data_dir,
+        mode=GenerationMode.REVIEW,
+        confirmed=False,
+        required=False,
+    )
+
+    response = client.post(f"/api/tasks/{task_id}/export")
+
+    assert response.status_code == 201

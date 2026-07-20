@@ -3,6 +3,7 @@ import { api } from "./client";
 export type ReviewSection = {
   section_key: string;
   name: string;
+  required: boolean;
   revision: number;
   content: string;
   confirmed: boolean;

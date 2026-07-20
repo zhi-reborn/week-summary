@@ -22,6 +22,7 @@ def create_exportable_task(
     *,
     mode: GenerationMode,
     confirmed: bool,
+    required: bool = True,
 ) -> str:
     with session_factory() as session:
         task = TaskRepository(session).create("第29周", mode=mode)
@@ -51,6 +52,7 @@ def create_exportable_task(
         name="本周重点",
         method=RecognitionMethod.PLACEHOLDER,
         confidence=1,
+        required=required,
         locator=TemplateLocator(
             part="document", paragraph_index=1, token="{{本周重点}}"
         ),

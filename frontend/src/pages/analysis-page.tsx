@@ -13,6 +13,7 @@ const STAGES = [
   { prefix: "generate_section", title: "按模板成稿", description: "逐个生成模板板块，板块之间可独立恢复。" },
   { prefix: "quality_coverage", title: "质量与覆盖", description: "核对数字来源、人员覆盖和未引用事实。" },
 ] as const;
+const POLLING_STATUSES = new Set(["analyzing", "exporting"]);
 
 function stepLabel(step: string | null): string {
   if (!step) return "正在建立分析步骤";
@@ -56,7 +57,7 @@ export function AnalysisPage({ taskId }: { taskId: string }) {
         if (active) {
           setProgress(next);
           setError("");
-          if (next.task_status === "analyzing") {
+          if (POLLING_STATUSES.has(next.task_status)) {
             timer.current = window.setTimeout(poll, document.hidden ? 10_000 : 2_000);
           }
         }
@@ -67,7 +68,7 @@ export function AnalysisPage({ taskId }: { taskId: string }) {
     void poll();
     const reschedule = () => {
       if (timer.current !== null) window.clearTimeout(timer.current);
-      if (active && progress?.task_status === "analyzing") {
+      if (active && progress && POLLING_STATUSES.has(progress.task_status)) {
         timer.current = window.setTimeout(poll, document.hidden ? 10_000 : 2_000);
       }
     };

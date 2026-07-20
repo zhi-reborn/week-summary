@@ -97,9 +97,17 @@ class ExportService:
                 values: dict[str, str] = {}
                 for section in sections:
                     review = reviews.latest(task_id, section.id)
-                    if review is None or not review.confirmed:
+                    if section.required and (review is None or not review.confirmed):
                         raise UnconfirmedSections()
-                    values[section.name] = review.content
+                    if review is not None:
+                        values[section.name] = review.content
+                        continue
+                    version = SectionVersionRepository(session).latest(task_id, section.id)
+                    if version is None:
+                        raise ExportError(
+                            "SECTION_CONTENT_MISSING", "汇总板块内容尚未生成"
+                        )
+                    values[section.name] = version.generated.body
                 return values
 
             versions = SectionVersionRepository(session)

@@ -23,6 +23,7 @@ class RegenerateSectionRequest(BaseModel):
 class ReviewSectionResponse(BaseModel):
     section_key: str
     name: str
+    required: bool
     revision: int
     content: str
     confirmed: bool
@@ -35,6 +36,7 @@ class ReviewSectionResponse(BaseModel):
         return cls(
             section_key=data.section.id,
             name=data.section.name,
+            required=data.section.required,
             revision=data.review.revision,
             content=data.review.content,
             confirmed=data.review.confirmed,

@@ -6,6 +6,7 @@ import { SectionEditor } from "../features/review/section-editor";
 const section = {
   section_key: "risk",
   name: "风险问题",
+  required: true,
   revision: 2,
   content: "资源存在风险",
   confirmed: false,

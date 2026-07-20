@@ -25,7 +25,8 @@ export function ReviewPage({ taskId }: { taskId: string }) {
   const sourceButtonRef = useRef<HTMLButtonElement>(null);
 
   const selected = sections.find((section) => section.section_key === selectedKey) ?? null;
-  const allConfirmed = sections.length > 0 && sections.every((section) => section.confirmed);
+  const allRequiredConfirmed = sections.length > 0
+    && sections.every((section) => !section.required || section.confirmed);
 
   useEffect(() => {
     let active = true;
@@ -184,7 +185,7 @@ export function ReviewPage({ taskId }: { taskId: string }) {
           {downloadName ? (
             <a className="primary-action" href={`/api/tasks/${taskId}/download`}>下载{downloadName}</a>
           ) : (
-            <button className="primary-action" disabled={!allConfirmed || busy} onClick={exportDocument} type="button">
+            <button className="primary-action" disabled={!allRequiredConfirmed || busy} onClick={exportDocument} type="button">
               {busy ? "正在生成…" : "生成并下载 Word"}
             </button>
           )}

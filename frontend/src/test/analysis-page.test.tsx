@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { AnalysisPage } from "../pages/analysis-page";
@@ -134,5 +134,37 @@ describe("AnalysisPage", () => {
       { method: "POST" },
     ));
     expect(await screen.findByRole("link", { name: "下载汇总 Word" })).toBeInTheDocument();
+  });
+
+  it("continues polling while Word is exporting", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response({
+        ...failedProgress,
+        task_status: "exporting",
+        current_step: null,
+        failed_error_code: null,
+      }))
+      .mockResolvedValueOnce(response({
+        ...failedProgress,
+        task_status: "exporting",
+        current_step: null,
+        failed_error_code: null,
+      }))
+      .mockResolvedValue(response({
+        ...failedProgress,
+        task_status: "completed",
+        current_step: null,
+        failed_error_code: null,
+      }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AnalysisPage taskId="task-1" />);
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(2_000); });
+
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3);
+    expect(screen.getByRole("link", { name: "下载汇总 Word" })).toBeInTheDocument();
+    vi.useRealTimers();
   });
 });
