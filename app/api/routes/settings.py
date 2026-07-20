@@ -38,7 +38,13 @@ def test_model_connection(request: Request) -> ModelCapabilities:
         timeout_seconds=settings.timeout_seconds,
     )
     try:
-        return client.test_connection()
+        capabilities = client.test_connection()
+        request.app.state.model_connectivity = {
+            "status": "reachable",
+            "json_mode": capabilities.json_mode,
+        }
+        return capabilities
     except LLMConnectionError as exc:
+        request.app.state.model_connectivity = {"status": "failed", "error_code": exc.code}
         status = 504 if exc.code == "MODEL_TIMEOUT" else 502
         raise ApiError(status, exc.code, str(exc)) from exc

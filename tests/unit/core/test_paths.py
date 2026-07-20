@@ -34,7 +34,12 @@ def test_settings_uses_platform_runtime_data_directory(
     monkeypatch.setattr(
         config_module,
         "resolve_runtime_paths",
-        lambda: SimpleNamespace(data_dir=tmp_path / "platform-data"),
+        lambda: SimpleNamespace(
+            data_dir=tmp_path / "platform-data",
+            log_dir=tmp_path / "platform-logs",
+        ),
     )
 
-    assert Settings().data_dir == tmp_path / "platform-data"
+    settings = Settings()
+    assert settings.data_dir == tmp_path / "platform-data"
+    assert settings.log_dir == tmp_path / "platform-logs"

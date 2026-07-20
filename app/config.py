@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="WRA_", extra="ignore")
 
     data_dir: Path = Field(default_factory=lambda: resolve_runtime_paths().data_dir)
+    log_dir: Path = Field(default_factory=lambda: resolve_runtime_paths().log_dir)
     host: str = "127.0.0.1"
     port: int = 8765
     max_txt_bytes: int = 10 * 1024 * 1024

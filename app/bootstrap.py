@@ -3,6 +3,7 @@ import uvicorn
 from app.application.analysis_pipeline import AnalysisPipeline
 from app.application.settings_service import SettingsService
 from app.config import Settings
+from app.core.logging import close_logging, configure_logging
 from app.infrastructure.files.task_storage import TaskStorage
 from app.infrastructure.jobs.runner import AnalysisRunner
 from app.infrastructure.llm.client import OpenAICompatibleClient
@@ -13,6 +14,7 @@ from app.migrations import run_migrations
 def main() -> None:
     settings = Settings()
     settings.data_dir.mkdir(parents=True, exist_ok=True)
+    configure_logging(settings.log_dir)
     run_migrations(settings)
     application = create_app(settings)
 
@@ -39,6 +41,7 @@ def main() -> None:
         uvicorn.run(application, host=settings.host, port=settings.port)
     finally:
         runner.stop()
+        close_logging()
 
 
 if __name__ == "__main__":

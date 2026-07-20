@@ -3,6 +3,7 @@ from typing import Any
 
 import httpx
 
+from app.core.logging import log_event
 from app.domain.facts import Fact, PersonExtraction
 from app.domain.model_settings import ModelCapabilities
 from app.domain.people import PersonSegment
@@ -108,8 +109,10 @@ class OpenAICompatibleClient:
             ) as client:
                 return client.post(self._url, headers=headers, json=payload)
         except httpx.TimeoutException as exc:
+            log_event({"stage": "model_request", "error_code": "MODEL_TIMEOUT"})
             raise LLMConnectionError("MODEL_TIMEOUT", "模型连接超时") from exc
         except httpx.RequestError as exc:
+            log_event({"stage": "model_request", "error_code": "MODEL_UNREACHABLE"})
             raise LLMConnectionError("MODEL_UNREACHABLE", "无法连接模型服务") from exc
 
     def _capability_payload(self) -> dict[str, Any]:
@@ -126,11 +129,35 @@ class OpenAICompatibleClient:
     @staticmethod
     def _raise_for_status(response: httpx.Response) -> None:
         if response.status_code < 400:
+            log_event(
+                {"stage": "model_request", "model_http_status": response.status_code}
+            )
             return
         if response.status_code in {401, 403}:
+            log_event(
+                {
+                    "stage": "model_request",
+                    "model_http_status": response.status_code,
+                    "error_code": "AUTH_FAILED",
+                }
+            )
             raise LLMConnectionError("AUTH_FAILED", "模型认证失败")
         if response.status_code == 404:
+            log_event(
+                {
+                    "stage": "model_request",
+                    "model_http_status": response.status_code,
+                    "error_code": "MODEL_NOT_FOUND",
+                }
+            )
             raise LLMConnectionError("MODEL_NOT_FOUND", "模型或接口不存在")
+        log_event(
+            {
+                "stage": "model_request",
+                "model_http_status": response.status_code,
+                "error_code": "MODEL_REQUEST_REJECTED",
+            }
+        )
         raise LLMConnectionError("MODEL_REQUEST_REJECTED", "模型拒绝了请求")
 
     @staticmethod
