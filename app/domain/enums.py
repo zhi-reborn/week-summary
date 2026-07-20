@@ -17,3 +17,4 @@ class TaskStatus(StrEnum):
     EXPORT_FAILED = "export_failed"
     COMPLETED = "completed"
     FAILED = "failed"
+    DELETING = "deleting"

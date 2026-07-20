@@ -13,3 +13,20 @@ def test_accepts_minimal_valid_docx(valid_docx_bytes: bytes) -> None:
 
     assert "word/document.xml" in result.entries
 
+
+def test_rejects_entry_with_excessive_compression_ratio() -> None:
+    from io import BytesIO
+    from zipfile import ZIP_DEFLATED, ZipFile
+
+    output = BytesIO()
+    with ZipFile(output, "w", ZIP_DEFLATED) as archive:
+        archive.writestr("[Content_Types].xml", "<Types/>")
+        archive.writestr("word/document.xml", b"0" * 200_000)
+
+    with pytest.raises(UnsafeDocx, match="压缩比"):
+        inspect_docx_package(
+            output.getvalue(),
+            max_entries=100,
+            max_uncompressed=1_000_000,
+            max_compression_ratio=100,
+        )

@@ -13,7 +13,14 @@ router = APIRouter(prefix="/api/tasks/{task_id}/template", tags=["template"])
 
 
 def _service(request: Request, session: Session) -> TemplateService:
-    return TemplateService(session, TaskStorage(request.app.state.settings.data_dir))
+    settings = request.app.state.settings
+    return TemplateService(
+        session,
+        TaskStorage(settings.data_dir),
+        max_docx_entries=settings.max_docx_entries,
+        max_docx_uncompressed_bytes=settings.max_docx_uncompressed_bytes,
+        max_docx_compression_ratio=settings.max_docx_compression_ratio,
+    )
 
 
 @router.post("/detect", response_model=list[TemplateSection])

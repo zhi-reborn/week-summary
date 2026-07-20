@@ -13,14 +13,30 @@ _SECTIONS_ADAPTER = TypeAdapter(list[TemplateSection])
 
 
 class TemplateService:
-    def __init__(self, session: Session, storage: TaskStorage) -> None:
+    def __init__(
+        self,
+        session: Session,
+        storage: TaskStorage,
+        *,
+        max_docx_entries: int = 2000,
+        max_docx_uncompressed_bytes: int = 100 * 1024 * 1024,
+        max_docx_compression_ratio: int = 100,
+    ) -> None:
         self._repository = TaskRepository(session)
         self._storage = storage
+        self._max_docx_entries = max_docx_entries
+        self._max_docx_uncompressed_bytes = max_docx_uncompressed_bytes
+        self._max_docx_compression_ratio = max_docx_compression_ratio
 
     def detect(self, task_id: str) -> list[TemplateSection]:
         self._require_task(task_id)
         template_bytes = self._storage.read_input(task_id, "template.docx")
-        inspect_docx_package(template_bytes, max_entries=5000, max_uncompressed=100 * 1024 * 1024)
+        inspect_docx_package(
+            template_bytes,
+            max_entries=self._max_docx_entries,
+            max_uncompressed=self._max_docx_uncompressed_bytes,
+            max_compression_ratio=self._max_docx_compression_ratio,
+        )
         sections = parse_template(self._storage.input_path(task_id, "template.docx"))
         self._storage.write_result(
             task_id,

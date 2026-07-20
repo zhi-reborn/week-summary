@@ -53,8 +53,40 @@ class TaskRepository:
         if row is None:
             raise LookupError("任务不存在")
         row.status = status.value
+        row.updated_at = datetime.now(timezone.utc)
         self._session.flush()
         return self._to_domain(row)
+
+    def list_terminal_before(self, cutoff: datetime) -> list[str]:
+        return list(
+            self._session.scalars(
+                select(TaskRow.id)
+                .where(
+                    TaskRow.status.in_([TaskStatus.COMPLETED.value, TaskStatus.FAILED.value]),
+                    TaskRow.updated_at < cutoff,
+                )
+                .order_by(TaskRow.updated_at, TaskRow.id)
+            )
+        )
+
+    def count(self) -> int:
+        return int(self._session.scalar(select(func.count()).select_from(TaskRow)) or 0)
+
+    def delete_with_dependents(self, task_id: str) -> None:
+        for model in (
+            QualityFindingRow,
+            SectionReviewRow,
+            SectionVersionRow,
+            JobStepRow,
+            AnalysisJobRow,
+            FactSourceRow,
+            FactRow,
+            PersonRow,
+            ExportRow,
+        ):
+            self._session.execute(delete(model).where(model.task_id == task_id))
+        self._session.execute(delete(TaskRow).where(TaskRow.id == task_id))
+        self._session.flush()
 
     @staticmethod
     def _to_domain(row: TaskRow) -> Task:

@@ -12,9 +12,12 @@ class Settings(BaseSettings):
     data_dir: Path = Field(default_factory=lambda: resolve_runtime_paths().data_dir)
     host: str = "127.0.0.1"
     port: int = 8765
-    max_upload_bytes: int = 25 * 1024 * 1024
-    max_docx_entries: int = 5000
+    max_txt_bytes: int = 10 * 1024 * 1024
+    max_docx_bytes: int = 20 * 1024 * 1024
+    max_docx_entries: int = 2000
     max_docx_uncompressed_bytes: int = 100 * 1024 * 1024
+    max_docx_compression_ratio: int = 100
+    retention_days: int | None = Field(default=None, ge=1)
 
     @property
     def database_url(self) -> str:
