@@ -21,3 +21,8 @@ def test_finds_placeholder_inside_table() -> None:
     assert [item.name for item in sections] == ["本周重点"]
     assert sections[0].method.value == "placeholder"
 
+
+def test_heading_does_not_reuse_a_placeholder_target() -> None:
+    sections = parse_template(Path("tests/fixtures/docx/plain_placeholder.docx"))
+
+    assert [item.name for item in sections] == ["本周重点"]

@@ -25,7 +25,7 @@ function stepLabel(step: string | null): string {
 }
 
 function stageState(progress: AnalysisProgress, prefix: string, index: number) {
-  if (progress.task_status === "review" || progress.task_status === "completed") return "done" as const;
+  if (["review", "exporting", "export_failed", "completed"].includes(progress.task_status)) return "done" as const;
   const currentPrefix = progress.current_step?.split(":")[0];
   const currentIndex = STAGES.findIndex((stage) => stage.prefix === currentPrefix);
   if (currentIndex < 0) return "waiting" as const;
@@ -90,6 +90,17 @@ export function AnalysisPage({ taskId }: { taskId: string }) {
     }
   }
 
+  async function retryExport() {
+    try {
+      await api<{ status: string }>(`/api/tasks/${taskId}/export`, { method: "POST" });
+      setProgress((current) => current ? { ...current, task_status: "completed" } : current);
+      setNotice("Word 文件已重新生成");
+      setError("");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "重新生成 Word 失败");
+    }
+  }
+
   const failedLabel = progress?.task_status === "failed" ? `${stepLabel(progress.current_step)}失败` : "";
   const percentage = progress?.total_steps
     ? Math.round((progress.succeeded_steps / progress.total_steps) * 100)
@@ -111,6 +122,13 @@ export function AnalysisPage({ taskId }: { taskId: string }) {
           <button className="primary-action" disabled={!progress?.retryable} onClick={retry} type="button">重试当前步骤</button>
         </section>
       ) : null}
+      {progress?.task_status === "export_failed" ? (
+        <section className="analysis-failure" aria-live="polite">
+          <div><p className="eyebrow">Export interrupted</p><h2>Word 文件生成失败</h2></div>
+          <code>{progress.failed_error_code}</code>
+          <button className="primary-action" onClick={() => { void retryExport(); }} type="button">重试生成 Word</button>
+        </section>
+      ) : null}
       <section className="analysis-ledger" aria-live="polite">
         <div className="analysis-ledger__summary">
           <span>当前动作</span>
@@ -129,6 +147,14 @@ export function AnalysisPage({ taskId }: { taskId: string }) {
           ))}
         </ol>
       </section>
+      {progress?.quality_findings.length ? (
+        <section className="analysis-findings" aria-labelledby="analysis-findings-title">
+          <div><p className="eyebrow">Quality notes</p><h2 id="analysis-findings-title">质量提示</h2></div>
+          <ul>{progress.quality_findings.map((finding, index) => (
+            <li key={`${finding.code}-${finding.token ?? index}`}>{finding.message}</li>
+          ))}</ul>
+        </section>
+      ) : null}
       {progress?.task_status === "review" ? <p className="analysis-ready">分析完成，内容已进入审核阶段。<Link to={`/tasks/${taskId}/review`}>进入内容校审</Link></p> : null}
       {progress?.task_status === "completed" ? <p className="analysis-ready">汇总文件已生成并通过校验。<a href={`/api/tasks/${taskId}/download`}>下载汇总 Word</a></p> : null}
     </main>

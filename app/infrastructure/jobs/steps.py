@@ -4,9 +4,11 @@ from typing import TypeVar
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.domain.quality import QualityFinding
 from app.infrastructure.db.repositories import (
     AnalysisJobRepository,
     JobStepRepository,
+    QualityFindingRepository,
     TaskRepository,
 )
 
@@ -20,6 +22,7 @@ class AnalysisProgress(BaseModel):
     current_step: str | None
     failed_error_code: str | None
     retryable: bool
+    quality_findings: list[QualityFinding]
 
 
 ResultT = TypeVar("ResultT")
@@ -76,4 +79,5 @@ def read_progress(session: Session, task_id: str) -> AnalysisProgress:
         current_step=(f"{active.step_type}:{active.entity_id}" if active is not None else None),
         failed_error_code=error_code,
         retryable=task.status.value == "failed" and job is not None and job.status == "failed",
+        quality_findings=QualityFindingRepository(session).list_for_task(task_id),
     )

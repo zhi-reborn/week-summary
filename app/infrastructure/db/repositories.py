@@ -422,6 +422,17 @@ class QualityFindingRepository:
         )
         self._session.flush()
 
+    def list_for_task(self, task_id: str) -> list[QualityFinding]:
+        rows = self._session.scalars(
+            select(QualityFindingRow)
+            .where(QualityFindingRow.task_id == task_id)
+            .order_by(QualityFindingRow.id)
+        )
+        return [
+            QualityFinding(code=row.code, message=row.message, token=row.token)
+            for row in rows
+        ]
+
 
 class AnalysisJobRepository:
     def __init__(self, session: Session) -> None:

@@ -1,9 +1,11 @@
 from fastapi.testclient import TestClient
 
 from app.domain.enums import TaskStatus
+from app.domain.quality import QualityFinding
 from app.infrastructure.db.repositories import (
     AnalysisJobRepository,
     JobStepRepository,
+    QualityFindingRepository,
     TaskRepository,
 )
 from app.infrastructure.jobs.runner import AnalysisRunner
@@ -51,6 +53,7 @@ def test_starts_analysis_and_returns_step_progress(client: TestClient) -> None:
         "current_step": "extract_person:P02",
         "failed_error_code": None,
         "retryable": False,
+        "quality_findings": [],
     }
 
 
@@ -81,3 +84,21 @@ def test_rejects_analysis_before_confirmations(client: TestClient) -> None:
 
     assert response.status_code == 409
     assert response.json()["code"] == "ANALYSIS_NOT_READY"
+
+
+def test_completed_progress_includes_quality_findings(client: TestClient) -> None:
+    task_id = _create_task_with_steps(client, TaskStatus.COMPLETED)
+    with client.app.state.session_factory() as session:
+        QualityFindingRepository(session).save_for_version(
+            task_id,
+            "section-version-1",
+            [QualityFinding(code="UNSOURCED_NUMBER", message="数字缺少来源：95%")],
+        )
+        session.commit()
+
+    response = client.get(f"/api/tasks/{task_id}/analysis/status")
+
+    assert response.status_code == 200
+    assert response.json()["quality_findings"] == [
+        {"code": "UNSOURCED_NUMBER", "message": "数字缺少来源：95%", "token": None}
+    ]

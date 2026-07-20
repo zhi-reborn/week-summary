@@ -28,4 +28,5 @@ export type AnalysisProgress = {
   current_step: string | null;
   failed_error_code: string | null;
   retryable: boolean;
+  quality_findings: { code: string; message: string; token: string | null }[];
 };

@@ -11,6 +11,7 @@ dist/
 app/static/
 frontend/dist/
 frontend/node_modules/
+frontend/test-results/
 frontend/vite.config.d.ts
 frontend/vite.config.js
 *.tsbuildinfo

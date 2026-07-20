@@ -66,10 +66,16 @@ def _heading_candidates(
     existing: list[tuple[str, int, str, RecognitionMethod, float, str | None]],
 ) -> list[tuple[str, int, str, RecognitionMethod, float, str | None]]:
     existing_names = {item[2] for item in existing}
+    claimed_targets = {item[1] for item in existing if item[0] == "document"}
     results: list[tuple[str, int, str, RecognitionMethod, float, str | None]] = []
     for index, paragraph in enumerate(paragraphs[:-1]):
         text = _paragraph_text(paragraph).strip()
-        if not text or text in existing_names or _PLACEHOLDER.search(text):
+        if (
+            not text
+            or text in existing_names
+            or _PLACEHOLDER.search(text)
+            or index + 1 in claimed_targets
+        ):
             continue
         styles = paragraph.xpath("./w:pPr/w:pStyle/@w:val", namespaces=_NS)
         if styles and str(styles[0]).lower().startswith("heading"):

@@ -12,6 +12,7 @@ const failedProgress = {
   current_step: "extract_person:P02",
   failed_error_code: "MODEL_TIMEOUT",
   retryable: true,
+  quality_findings: [],
 };
 
 function response(payload: unknown) {
@@ -90,6 +91,11 @@ describe("AnalysisPage", () => {
       current_step: null,
       failed_error_code: null,
       retryable: false,
+      quality_findings: [{
+        code: "UNSOURCED_NUMBER",
+        message: "数字、日期或版本缺少来源：95%",
+        token: "95%",
+      }],
     })));
 
     render(<AnalysisPage taskId="task-1" />);
@@ -98,5 +104,35 @@ describe("AnalysisPage", () => {
       "href",
       "/api/tasks/task-1/download",
     );
+    expect(screen.getByRole("heading", { name: "质量提示" })).toBeInTheDocument();
+    expect(screen.getByText("数字、日期或版本缺少来源：95%")).toBeInTheDocument();
+  });
+
+  it("retries a failed direct export without repeating analysis", async () => {
+    const exportFailed = {
+      ...failedProgress,
+      task_status: "export_failed",
+      current_step: null,
+      failed_error_code: "DOCX_VALIDATION_FAILED",
+      retryable: false,
+    };
+    let current = exportFailed;
+    const fetchMock = vi.fn().mockImplementation((path: string, init?: RequestInit) => {
+      if (path.endsWith("/export") && init?.method === "POST") {
+        current = { ...exportFailed, task_status: "completed" };
+        return Promise.resolve(response({ status: "completed", download_name: "周报汇总.docx" }));
+      }
+      return Promise.resolve(response(current));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<AnalysisPage taskId="task-1" />);
+    fireEvent.click(await screen.findByRole("button", { name: "重试生成 Word" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      "/api/tasks/task-1/export",
+      { method: "POST" },
+    ));
+    expect(await screen.findByRole("link", { name: "下载汇总 Word" })).toBeInTheDocument();
   });
 });

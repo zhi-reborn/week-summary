@@ -95,6 +95,9 @@ button, input, textarea { font: inherit; }
 .progress-stage--failed { color: #9a3027; background: #f5ded8; }
 .analysis-ready { margin: 22px 0 0; padding: 20px 24px; border: 1px solid #2c7554; color: #235d43; font-weight: 700; }
 .analysis-ready a { float: right; color: inherit; }
+.analysis-findings { display: grid; grid-template-columns: minmax(220px, .7fr) 1.3fr; gap: 28px; margin-top: 22px; padding: 24px; border: 1px solid #b06b2a; background: #fff9ef; }
+.analysis-findings h2 { margin: 4px 0 0; font-family: "Iowan Old Style", "Songti SC", serif; font-size: 30px; font-weight: 500; }
+.analysis-findings ul { margin: 0; padding-left: 20px; line-height: 1.7; }
 .review-workspace { width: min(1480px, calc(100% - 36px)); min-height: 100vh; margin: auto; padding: 24px 0 54px; }
 .review-header { display: flex; align-items: end; justify-content: space-between; gap: 28px; padding: 12px 4px 24px; border-bottom: 1px solid #17202a; }
 .review-header h1 { margin: 8px 0 0; font-family: "Iowan Old Style", "Songti SC", serif; font-size: clamp(44px, 6vw, 84px); font-weight: 500; line-height: .9; letter-spacing: -.045em; }
