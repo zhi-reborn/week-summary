@@ -1,0 +1,10 @@
+Package: weekly-report-assistant
+Version: @VERSION@
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: Weekly Report Assistant
+Depends: libc6 (>= 2.31), systemd, adduser, curl
+Installed-Size: @INSTALLED_SIZE@
+Description: Local private-model weekly report aggregation system
+ Aggregates TXT weekly reports into a user-provided DOCX template.

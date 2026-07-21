@@ -1,0 +1,60 @@
+#!/bin/sh
+set -e
+
+SERVICE_USER=weekly-report
+INSTALL_DIR=/opt/weekly-report-assistant
+DATA_DIR=/var/lib/weekly-report-assistant
+LOG_DIR=/var/log/weekly-report-assistant
+ROLLBACK_DIR=$DATA_DIR/package-rollback
+SUCCESS=0
+
+rollback_failed_upgrade() {
+    if [ "$SUCCESS" -eq 1 ]; then
+        return
+    fi
+    systemctl disable --now weekly-report-assistant.service 2>/dev/null || true
+    if [ -f "$ROLLBACK_DIR/is-upgrade" ]; then
+        rm -rf "$INSTALL_DIR"
+        mkdir -p "$INSTALL_DIR"
+        cp -a "$ROLLBACK_DIR/program/." "$INSTALL_DIR/"
+        rm -f "$DATA_DIR/app.db-wal" "$DATA_DIR/app.db-shm" \
+            "$DATA_DIR/app.db-journal"
+        for item in "$ROLLBACK_DIR"/data/*; do
+            [ -f "$item" ] && cp -a "$item" "$DATA_DIR/"
+        done
+        if [ -f "$ROLLBACK_DIR/service" ]; then
+            cp -a "$ROLLBACK_DIR/service" /lib/systemd/system/weekly-report-assistant.service
+        fi
+        systemctl daemon-reload
+        systemctl enable --now weekly-report-assistant.service 2>/dev/null || true
+    fi
+}
+trap rollback_failed_upgrade EXIT HUP INT TERM
+
+if ! getent passwd "$SERVICE_USER" >/dev/null; then
+    adduser --system --group --home /nonexistent --no-create-home \
+        --shell /usr/sbin/nologin "$SERVICE_USER"
+fi
+install -d -m 0700 -o "$SERVICE_USER" -g "$SERVICE_USER" "$DATA_DIR" "$LOG_DIR"
+install -d -m 0755 -o root -g root /etc/weekly-report-assistant
+chown -R root:root "$INSTALL_DIR"
+chmod -R go-w "$INSTALL_DIR"
+
+runuser -u "$SERVICE_USER" -- "$INSTALL_DIR/weekly-report-assistant" --migrate
+systemctl daemon-reload
+systemctl enable weekly-report-assistant.service
+systemctl restart weekly-report-assistant.service
+
+deadline=$(( $(date +%s) + 60 ))
+until curl --fail --silent --max-time 2 http://127.0.0.1:8765/api/health/ready |
+    grep -q '"status":"ready"'; do
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+        echo "weekly-report-assistant readiness timed out" >&2
+        exit 1
+    fi
+    sleep 1
+done
+
+SUCCESS=1
+trap - EXIT HUP INT TERM
+rm -rf "$ROLLBACK_DIR"

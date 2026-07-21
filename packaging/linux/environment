@@ -1,0 +1,5 @@
+# Weekly Report Assistant service configuration
+WRA_HOST=127.0.0.1
+WRA_PORT=8765
+WRA_DATA_DIR=/var/lib/weekly-report-assistant
+WRA_LOG_DIR=/var/log/weekly-report-assistant

@@ -1,0 +1,26 @@
+#!/bin/sh
+set -e
+
+ROLLBACK_DIR=/var/lib/weekly-report-assistant/package-rollback
+DATA_DIR=/var/lib/weekly-report-assistant
+INSTALL_DIR=/opt/weekly-report-assistant
+
+case "${1:-}" in
+    install|upgrade)
+        systemctl stop weekly-report-assistant.service 2>/dev/null || true
+        rm -rf "$ROLLBACK_DIR"
+        mkdir -p "$ROLLBACK_DIR/data" "$ROLLBACK_DIR/program"
+        if [ -d "$INSTALL_DIR" ]; then
+            cp -a "$INSTALL_DIR/." "$ROLLBACK_DIR/program/"
+            : > "$ROLLBACK_DIR/is-upgrade"
+        fi
+        for name in app.db model_settings.json model_api_key config.toml; do
+            if [ -f "$DATA_DIR/$name" ]; then
+                cp -a "$DATA_DIR/$name" "$ROLLBACK_DIR/data/"
+            fi
+        done
+        if [ -f /lib/systemd/system/weekly-report-assistant.service ]; then
+            cp -a /lib/systemd/system/weekly-report-assistant.service "$ROLLBACK_DIR/service"
+        fi
+        ;;
+esac

@@ -1,0 +1,11 @@
+#!/bin/sh
+set -e
+
+case "${1:-}" in
+    remove|deconfigure)
+        systemctl disable --now weekly-report-assistant.service 2>/dev/null || true
+        ;;
+    upgrade|failed-upgrade)
+        systemctl stop weekly-report-assistant.service 2>/dev/null || true
+        ;;
+esac
