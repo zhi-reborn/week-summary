@@ -3,24 +3,31 @@ set -e
 
 ROLLBACK_DIR=/var/lib/weekly-report-assistant/package-rollback
 DATA_DIR=/var/lib/weekly-report-assistant
-INSTALL_DIR=/opt/weekly-report-assistant
+SERVICE_WAS_ACTIVE=0
+SUCCESS=0
+
+restore_service_on_failure() {
+    if [ "$SUCCESS" -eq 0 ] && [ "$SERVICE_WAS_ACTIVE" -eq 1 ]; then
+        systemctl start weekly-report-assistant.service 2>/dev/null || true
+    fi
+}
+trap restore_service_on_failure EXIT HUP INT TERM
 
 case "${1:-}" in
     install|upgrade)
+        if systemctl is-active --quiet weekly-report-assistant.service 2>/dev/null; then
+            SERVICE_WAS_ACTIVE=1
+        fi
         systemctl stop weekly-report-assistant.service 2>/dev/null || true
         rm -rf "$ROLLBACK_DIR"
-        mkdir -p "$ROLLBACK_DIR/data" "$ROLLBACK_DIR/program"
-        if [ -d "$INSTALL_DIR" ]; then
-            cp -a "$INSTALL_DIR/." "$ROLLBACK_DIR/program/"
-            : > "$ROLLBACK_DIR/is-upgrade"
-        fi
+        mkdir -p "$ROLLBACK_DIR/data"
         for name in app.db model_settings.json model_api_key config.toml; do
             if [ -f "$DATA_DIR/$name" ]; then
                 cp -a "$DATA_DIR/$name" "$ROLLBACK_DIR/data/"
             fi
         done
-        if [ -f /lib/systemd/system/weekly-report-assistant.service ]; then
-            cp -a /lib/systemd/system/weekly-report-assistant.service "$ROLLBACK_DIR/service"
-        fi
         ;;
 esac
+
+SUCCESS=1
+trap - EXIT HUP INT TERM

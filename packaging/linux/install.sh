@@ -14,6 +14,10 @@ ENV_SOURCE="$SOURCE_DIR/environment"
 PREVIOUS_DIR="/opt/.weekly-report-assistant.previous"
 ROLLBACK_DIR="$DATA_DIR/installer-rollback"
 HAD_PREVIOUS=0
+INSTALL_MUTATED=0
+ORIGINAL_SERVICE_ACTIVE=0
+ORIGINAL_SERVICE_ENABLED=0
+INSTALL_SUCCESS=0
 
 require_environment() {
     [[ "$EUID" -eq 0 ]] || { echo "必须以 root 运行" >&2; exit 1; }
@@ -33,7 +37,10 @@ require_environment() {
 }
 
 restore_previous() {
-    trap - ERR
+    if [[ "$INSTALL_SUCCESS" -eq 1 ]]; then
+        return
+    fi
+    trap - EXIT HUP INT TERM ERR
     systemctl stop "$SERVICE_NAME.service" 2>/dev/null || true
     if [[ "$HAD_PREVIOUS" -eq 1 && -d "$PREVIOUS_DIR" ]]; then
         rm -rf "$INSTALL_DIR"
@@ -47,14 +54,24 @@ restore_previous() {
         if [[ -f "$ROLLBACK_DIR/service" ]]; then
             cp -a "$ROLLBACK_DIR/service" /etc/systemd/system/weekly-report-assistant.service
         fi
-        systemctl daemon-reload
-        systemctl enable --now "$SERVICE_NAME.service" 2>/dev/null || true
-    else
+    elif [[ "$INSTALL_MUTATED" -eq 1 ]]; then
         rm -rf "$INSTALL_DIR"
         rm -f /etc/systemd/system/weekly-report-assistant.service
-        systemctl daemon-reload
+    fi
+    systemctl daemon-reload
+    if [[ "$ORIGINAL_SERVICE_ENABLED" -eq 1 ]]; then
+        systemctl enable "$SERVICE_NAME.service" 2>/dev/null || true
+    else
+        systemctl disable "$SERVICE_NAME.service" 2>/dev/null || true
+    fi
+    if [[ "$ORIGINAL_SERVICE_ACTIVE" -eq 1 ]]; then
+        systemctl start "$SERVICE_NAME.service" 2>/dev/null || true
     fi
     echo "安装失败，已尝试恢复原版本" >&2
+}
+
+abort_install() {
+    exit 1
 }
 
 wait_ready() {
@@ -67,6 +84,14 @@ wait_ready() {
 }
 
 require_environment
+if systemctl is-active --quiet "$SERVICE_NAME.service" 2>/dev/null; then
+    ORIGINAL_SERVICE_ACTIVE=1
+fi
+if systemctl is-enabled --quiet "$SERVICE_NAME.service" 2>/dev/null; then
+    ORIGINAL_SERVICE_ENABLED=1
+fi
+trap restore_previous EXIT
+trap abort_install HUP INT TERM
 systemctl stop "$SERVICE_NAME.service" 2>/dev/null || true
 if ss -ltnH 'sport = :8765' | grep -q .; then
     echo "端口 8765 已被占用" >&2
@@ -75,22 +100,22 @@ fi
 
 getent passwd "$SERVICE_USER" >/dev/null || useradd \
     --system --home-dir /nonexistent --no-create-home --shell /usr/sbin/nologin "$SERVICE_USER"
+rm -rf "$ROLLBACK_DIR"
 install -d -m 0700 -o "$SERVICE_USER" -g "$SERVICE_USER" "$DATA_DIR" "$LOG_DIR"
 install -d -m 0755 -o root -g root "$CONFIG_DIR"
 install -d -m 0700 -o root -g root "$ROLLBACK_DIR/data"
 
-if [[ -d "$PREVIOUS_DIR" ]]; then rm -rf "$PREVIOUS_DIR"; fi
-if [[ -d "$INSTALL_DIR" ]]; then
-    mv "$INSTALL_DIR" "$PREVIOUS_DIR"
-    HAD_PREVIOUS=1
-fi
 for name in app.db model_settings.json model_api_key config.toml; do
     [[ -f "$DATA_DIR/$name" ]] && cp -a "$DATA_DIR/$name" "$ROLLBACK_DIR/data/"
 done
 [[ -f /etc/systemd/system/weekly-report-assistant.service ]] && \
     cp -a /etc/systemd/system/weekly-report-assistant.service "$ROLLBACK_DIR/service"
-trap restore_previous ERR
-
+if [[ -d "$PREVIOUS_DIR" ]]; then rm -rf "$PREVIOUS_DIR"; fi
+if [[ -d "$INSTALL_DIR" ]]; then
+    mv "$INSTALL_DIR" "$PREVIOUS_DIR"
+    HAD_PREVIOUS=1
+fi
+INSTALL_MUTATED=1
 install -d -m 0755 -o root -g root "$INSTALL_DIR"
 cp -a "$BUNDLE_DIR/." "$INSTALL_DIR/"
 install -d -m 0755 -o root -g root "$INSTALL_DIR/installer"
@@ -108,6 +133,7 @@ systemctl daemon-reload
 systemctl enable --now "$SERVICE_NAME.service"
 wait_ready
 
-trap - ERR
 rm -rf "$PREVIOUS_DIR" "$ROLLBACK_DIR"
+INSTALL_SUCCESS=1
+trap - EXIT HUP INT TERM ERR
 echo "LINUX_INSTALL_COMPLETE url=http://127.0.0.1:8765"

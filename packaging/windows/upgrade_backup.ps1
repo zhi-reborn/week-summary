@@ -37,9 +37,18 @@ function Wait-Ready {
 
 function Restore-PreviousVersion {
     Stop-WeeklyReportService
-    if (Test-Path $ProgramBackup) {
+    $isUpgrade = $false
+    if (Test-Path $Marker) {
+        $state = Get-Content $Marker -Raw | ConvertFrom-Json
+        $isUpgrade = [bool]$state.is_upgrade
+    }
+    if ($isUpgrade -and (Test-Path $ProgramBackup)) {
         & robocopy.exe $ProgramBackup $InstallDir /MIR /R:2 /W:1 | Out-Null
         if ($LASTEXITCODE -ge 8) { throw "Program rollback failed" }
+        foreach ($name in @("app.db-wal", "app.db-shm", "app.db-journal")) {
+            $sidecar = Join-Path $DataDir $name
+            if (Test-Path $sidecar) { Remove-Item $sidecar -Force }
+        }
         foreach ($item in Get-ChildItem $DataBackup -File -ErrorAction SilentlyContinue) {
             Copy-Item $item.FullName (Join-Path $DataDir $item.Name) -Force
         }
@@ -55,23 +64,30 @@ function Restore-PreviousVersion {
 }
 
 if ($Mode -eq "BeforeUpgrade") {
-    Stop-WeeklyReportService
-    $occupied = Get-NetTCPConnection -State Listen -LocalPort 8765 -ErrorAction SilentlyContinue
-    if ($occupied) { throw "Port 8765 is already in use" }
-    if (Test-Path $RollbackDir) { Remove-Item $RollbackDir -Recurse -Force }
-    New-Item -ItemType Directory -Path $ProgramBackup -Force | Out-Null
-    New-Item -ItemType Directory -Path $DataBackup -Force | Out-Null
-    $existingExecutable = Join-Path $InstallDir "weekly-report-assistant.exe"
-    $isUpgrade = Test-Path $existingExecutable
-    if ($isUpgrade) {
-        Copy-Item (Join-Path $InstallDir "*") $ProgramBackup -Recurse -Force
-        foreach ($name in @("app.db", "model_settings.json", "model_api_key", "config.toml")) {
-            $source = Join-Path $DataDir $name
-            if (Test-Path $source) { Copy-Item $source $DataBackup -Force }
+    $service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
+    $serviceWasRunning = $service -and $service.Status -eq "Running"
+    try {
+        Stop-WeeklyReportService
+        $occupied = Get-NetTCPConnection -State Listen -LocalPort 8765 -ErrorAction SilentlyContinue
+        if ($occupied) { throw "Port 8765 is already in use" }
+        if (Test-Path $RollbackDir) { Remove-Item $RollbackDir -Recurse -Force }
+        New-Item -ItemType Directory -Path $ProgramBackup -Force | Out-Null
+        New-Item -ItemType Directory -Path $DataBackup -Force | Out-Null
+        $existingExecutable = Join-Path $InstallDir "weekly-report-assistant.exe"
+        $isUpgrade = Test-Path $existingExecutable
+        if ($isUpgrade) {
+            Copy-Item (Join-Path $InstallDir "*") $ProgramBackup -Recurse -Force
+            foreach ($name in @("app.db", "model_settings.json", "model_api_key", "config.toml")) {
+                $source = Join-Path $DataDir $name
+                if (Test-Path $source) { Copy-Item $source $DataBackup -Force }
+            }
         }
+        @{ is_upgrade = $isUpgrade; created_at = [DateTime]::UtcNow.ToString("o") } |
+            ConvertTo-Json | Set-Content -Path $Marker -Encoding UTF8
+    } catch {
+        if ($serviceWasRunning) { Start-Service -Name $ServiceName -ErrorAction SilentlyContinue }
+        throw
     }
-    @{ is_upgrade = $isUpgrade; created_at = [DateTime]::UtcNow.ToString("o") } |
-        ConvertTo-Json | Set-Content -Path $Marker -Encoding UTF8
     exit 0
 }
 

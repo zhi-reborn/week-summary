@@ -1,5 +1,7 @@
 #define MyAppName "智能周报汇总系统"
-#define MyAppVersion "0.1.0"
+#ifndef MyAppVersion
+  #define MyAppVersion "0.1.0"
+#endif
 #define MyAppPublisher "Weekly Report Assistant"
 
 [Setup]

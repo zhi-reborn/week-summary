@@ -6,7 +6,7 @@ set -Eeuo pipefail
 command -v dpkg-deb >/dev/null || { echo "缺少 dpkg-deb" >&2; exit 1; }
 
 ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
-VERSION="0.1.0"
+VERSION="$(tr -d '\r\n' < "$ROOT/VERSION")"
 PYTHON="$ROOT/.venv/bin/python"
 [[ -x "$PYTHON" ]] || PYTHON="$(command -v python3.12)"
 

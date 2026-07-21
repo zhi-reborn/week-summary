@@ -13,21 +13,14 @@ rollback_failed_upgrade() {
         return
     fi
     systemctl disable --now weekly-report-assistant.service 2>/dev/null || true
-    if [ -f "$ROLLBACK_DIR/is-upgrade" ]; then
-        rm -rf "$INSTALL_DIR"
-        mkdir -p "$INSTALL_DIR"
-        cp -a "$ROLLBACK_DIR/program/." "$INSTALL_DIR/"
+    if [ -d "$ROLLBACK_DIR/data" ]; then
         rm -f "$DATA_DIR/app.db-wal" "$DATA_DIR/app.db-shm" \
             "$DATA_DIR/app.db-journal"
         for item in "$ROLLBACK_DIR"/data/*; do
             [ -f "$item" ] && cp -a "$item" "$DATA_DIR/"
         done
-        if [ -f "$ROLLBACK_DIR/service" ]; then
-            cp -a "$ROLLBACK_DIR/service" /lib/systemd/system/weekly-report-assistant.service
-        fi
-        systemctl daemon-reload
-        systemctl enable --now weekly-report-assistant.service 2>/dev/null || true
     fi
+    systemctl daemon-reload
 }
 trap rollback_failed_upgrade EXIT HUP INT TERM
 

@@ -8,6 +8,7 @@ if ($env:PROCESSOR_ARCHITECTURE -ne "AMD64") {
 }
 
 $Root = Split-Path -Parent $PSScriptRoot
+$Version = (Get-Content (Join-Path $Root "VERSION") -Raw).Trim()
 $Python = Join-Path $Root ".venv\Scripts\python.exe"
 if (-not (Test-Path $Python)) {
     $Python = (Get-Command py.exe -ErrorAction Stop).Source
@@ -40,10 +41,10 @@ if (-not $Iscc) {
     if (Test-Path $candidate) { $Iscc = $candidate }
 }
 if (-not $Iscc) { throw "ISCC.exe (Inno Setup 6) was not found" }
-& $Iscc (Join-Path $Root "packaging\windows\weekly-report-assistant.iss")
+& $Iscc "/DMyAppVersion=$Version" (Join-Path $Root "packaging\windows\weekly-report-assistant.iss")
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup build failed" }
 
-$Installer = Join-Path $Root "dist\installers\WeeklyReportAssistant-0.1.0-windows-x64.exe"
+$Installer = Join-Path $Root "dist\installers\WeeklyReportAssistant-$Version-windows-x64.exe"
 if ($Certificate) {
     & $SignTool sign /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 /f $Certificate /p $CertificatePassword $Installer
     if ($LASTEXITCODE -ne 0) { throw "Installer signing failed" }

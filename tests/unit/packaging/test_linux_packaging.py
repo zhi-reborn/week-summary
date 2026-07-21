@@ -30,7 +30,7 @@ def test_linux_installers_keep_data_by_default_and_support_explicit_purge() -> N
     assert "rm -rf /var/lib/weekly-report-assistant" in uninstall
 
 
-def test_linux_upgrade_rollback_restores_program_data_and_service() -> None:
+def test_linux_installers_back_up_data_and_clean_sqlite_sidecars_on_rollback() -> None:
     install = _read("packaging/linux/install.sh")
     preinst = _read("packaging/linux/preinst")
     postinst = _read("packaging/linux/postinst")
@@ -38,10 +38,31 @@ def test_linux_upgrade_rollback_restores_program_data_and_service() -> None:
     assert "restore_previous" in install
     assert "app.db-wal" in install
     assert "package-rollback" in preinst
-    assert "is-upgrade" in preinst
     assert "rollback_failed_upgrade" in postinst
     assert "app.db-wal" in postinst
     assert "systemctl disable --now weekly-report-assistant.service" in postinst
+
+
+def test_tar_installer_rolls_back_all_failures_after_stopping_the_old_service() -> None:
+    install = _read("packaging/linux/install.sh")
+
+    assert install.index("trap restore_previous EXIT") < install.rindex(
+        'systemctl stop "$SERVICE_NAME.service"'
+    )
+    assert "trap abort_install HUP INT TERM" in install
+    assert "INSTALL_SUCCESS=1" in install
+    assert install.index('for name in app.db model_settings.json') < install.index(
+        'mv "$INSTALL_DIR" "$PREVIOUS_DIR"'
+    )
+
+
+def test_deb_failure_restores_data_without_overwriting_dpkg_managed_files() -> None:
+    preinst = _read("packaging/linux/preinst")
+    postinst = _read("packaging/linux/postinst")
+
+    assert '"$ROLLBACK_DIR/program"' not in preinst
+    assert 'cp -a "$ROLLBACK_DIR/program/." "$INSTALL_DIR/"' not in postinst
+    assert 'cp -a "$ROLLBACK_DIR/service"' not in postinst
 
 
 def test_linux_build_requires_native_x86_64_and_produces_both_formats() -> None:

@@ -18,11 +18,18 @@ def test_windows_service_uses_virtual_account_and_bounded_restart_policy() -> No
 
 def test_windows_installer_targets_supported_x64_systems_and_keeps_data_by_default() -> None:
     definition = _read("packaging/windows/weekly-report-assistant.iss")
+    rollback = _read("packaging/windows/upgrade_backup.ps1")
 
     assert "ArchitecturesAllowed=x64compatible" in definition
     assert "MinVersion=10.0.17763" in definition
     assert "RemoveDataCheckBox.Checked := False" in definition
     assert "upgrade_backup.ps1" in definition
+    assert "app.db-wal" in rollback
+    assert "app.db-shm" in rollback
+    assert "app.db-journal" in rollback
+    assert "ConvertFrom-Json" in rollback
+    assert "$serviceWasRunning" in rollback
+    assert "Start-Service -Name $ServiceName" in rollback
 
 
 def test_windows_build_and_acceptance_scripts_have_native_gates() -> None:
