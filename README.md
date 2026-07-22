@@ -105,3 +105,4 @@ bash scripts/build_linux.sh
 ```
 
 只有严格检查输出 `RELEASE_OK version=<版本> artifacts=3 checksums=valid`，且发布、DOCX 与安全清单全部完成，才可发布正式版。
+# week-summary
