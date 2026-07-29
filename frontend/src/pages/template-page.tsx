@@ -10,13 +10,21 @@ export function TemplatePage({ taskId, onConfirmed }: { taskId: string; onConfir
   const [sections, setSections] = useState<TemplateSection[]>([]);
   const [acknowledged, setAcknowledged] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let active = true;
+    setLoading(true);
     api<TemplateSection[]>(`/api/tasks/${taskId}/template/sections`).then((data) => {
-      if (active) setSections(data);
+      if (active) {
+        setSections(data);
+        setLoading(false);
+      }
     }).catch((reason: Error) => {
-      if (active) setError(reason.message);
+      if (active) {
+        setError(reason.message);
+        setLoading(false);
+      }
     });
     return () => { active = false; };
   }, [taskId]);
@@ -39,6 +47,15 @@ export function TemplatePage({ taskId, onConfirmed }: { taskId: string; onConfir
       <header><p className="eyebrow">Step 03 / Template</p><h1>确认模板板块</h1></header>
       {error ? <ErrorBanner message={error} /> : null}
       <section className="template-grid">
+        {!loading && !error && sections.length === 0 ? (
+          <article className="empty-state">
+            <h2>未识别到模板板块</h2>
+            <p>
+              模板中没有可识别的填写位置。请在 Word 中使用 {"{{板块名称}}"}，
+              或使用“【填写……】”“【概述……】”标记需要生成的内容。
+            </p>
+          </article>
+        ) : null}
         {sections.map((section) => {
           const needsReview = section.confidence < 0.85;
           return (
