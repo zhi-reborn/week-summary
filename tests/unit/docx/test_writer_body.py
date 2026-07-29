@@ -40,3 +40,26 @@ def test_new_paragraph_inherits_placeholder_run_style(tmp_path: Path) -> None:
     assert written.paragraphs[0].runs[0].bold is True
     assert written.paragraphs[1].runs[0].bold is True
     assert written.paragraphs[1].runs[0].font.color.rgb == RGBColor(0x24, 0x57, 0xA6)
+
+
+def test_replaces_multiple_instruction_tokens_in_one_paragraph(tmp_path: Path) -> None:
+    source = tmp_path / "instruction-template.docx"
+    output = tmp_path / "out.docx"
+    document = Document()
+    document.add_paragraph(
+        "业务连续性：【概述业务连续性。】 产品化建设：【概述产品化建设。】"
+    )
+    document.save(source)
+
+    write_sections(
+        source,
+        output,
+        {
+            "业务连续性": "完成扩容",
+            "产品化建设": "完成平台升级",
+        },
+    )
+
+    assert Document(output).paragraphs[0].text == (
+        "业务连续性：完成扩容 产品化建设：完成平台升级"
+    )

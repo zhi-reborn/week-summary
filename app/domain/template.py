@@ -7,6 +7,7 @@ from app.domain.facts import FactKind
 
 class RecognitionMethod(StrEnum):
     PLACEHOLDER = "placeholder"
+    INSTRUCTION_PLACEHOLDER = "instruction_placeholder"
     HEADING_STYLE = "heading_style"
     HEADING_TEXT = "heading_text"
     TABLE_LABEL = "table_label"
