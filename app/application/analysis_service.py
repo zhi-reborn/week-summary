@@ -28,7 +28,7 @@ class AnalysisService:
             steps.mark_running(step.id)
             self._session.commit()
             try:
-                extraction = self._llm.extract_person(person)
+                extraction = self._bind_person(person, self._llm.extract_person(person))
                 self._validate_person(person, extraction)
                 FactRepository(self._session).replace_person_facts(task_id, extraction)
                 JobStepRepository(self._session).mark_succeeded(step.id)
@@ -45,6 +45,28 @@ class AnalysisService:
                 )
                 self._session.commit()
                 raise
+
+    @staticmethod
+    def _bind_person(
+        person: PersonSegment, extraction: PersonExtraction
+    ) -> PersonExtraction:
+        facts = [
+            fact.model_copy(
+                update={
+                    "id": f"{person.id}-F{index:02d}",
+                    "sources": [
+                        source.model_copy(update={"person_id": person.id})
+                        for source in fact.sources
+                    ],
+                }
+            )
+            for index, fact in enumerate(extraction.facts, start=1)
+        ]
+        return PersonExtraction(
+            person_id=person.id,
+            person_name=person.name,
+            facts=facts,
+        )
 
     @staticmethod
     def _validate_person(person: PersonSegment, extraction: PersonExtraction) -> None:
