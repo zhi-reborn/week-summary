@@ -5,7 +5,7 @@ from app.domain.review import GeneratedSection
 
 
 class InvalidStructuredResponse(ValueError):
-    pass
+    code = "MODEL_SCHEMA_INVALID"
 
 
 def parse_person_extraction(raw: str) -> PersonExtraction:

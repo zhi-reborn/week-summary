@@ -9,13 +9,6 @@ from app.domain.template import TemplateSection
 
 def build_person_extraction_messages(person: PersonSegment) -> list[dict[str, str]]:
     schema = json.dumps(PersonExtraction.model_json_schema(), ensure_ascii=False)
-    numbered_lines = "\n".join(
-        f"{person.line_start + index + 1}: {line}"
-        for index, line in enumerate(person.content.splitlines())
-    )
-    data = html.escape(numbered_lines)
-    person_id = html.escape(person.id, quote=True)
-    person_name = html.escape(person.name, quote=True)
     return [
         {
             "role": "system",
@@ -25,24 +18,43 @@ def build_person_extraction_messages(person: PersonSegment) -> list[dict[str, st
                 f"只返回符合以下 JSON Schema 的对象：{schema}"
             ),
         },
-        {
-            "role": "user",
-            "content": (
-                f'<weekly_report_data person_id="{person_id}" person_name="{person_name}">\n'
-                f"{data}\n</weekly_report_data>"
-            ),
-        },
+        {"role": "user", "content": _weekly_report_data(person)},
     ]
 
 
-def build_repair_messages(raw: str) -> list[dict[str, str]]:
+def _weekly_report_data(person: PersonSegment) -> str:
+    numbered_lines = "\n".join(
+        f"{person.line_start + index + 1}: {line}"
+        for index, line in enumerate(person.content.splitlines())
+    )
+    data = html.escape(numbered_lines)
+    person_id = html.escape(person.id, quote=True)
+    person_name = html.escape(person.name, quote=True)
+    return (
+        f'<weekly_report_data person_id="{person_id}" person_name="{person_name}">\n'
+        f"{data}\n</weekly_report_data>"
+    )
+
+
+def build_repair_messages(person: PersonSegment, raw: str) -> list[dict[str, str]]:
     schema = json.dumps(PersonExtraction.model_json_schema(), ensure_ascii=False)
     return [
         {
             "role": "system",
-            "content": "修复给定响应，使其严格符合 JSON Schema。不得添加原响应中不存在的事实。只返回 JSON。",
+            "content": (
+                "修复给定响应，使其严格符合 JSON Schema。"
+                "person_id、person_name 和所有来源 person_id 必须与 weekly_report_data 一致。"
+                "不得添加原文中不存在的事实。只返回 JSON。"
+            ),
         },
-        {"role": "user", "content": f"JSON Schema:\n{schema}\n\n待修复响应：\n{raw}"},
+        {
+            "role": "user",
+            "content": (
+                f"JSON Schema:\n{schema}\n\n"
+                f"原始周报：\n{_weekly_report_data(person)}\n\n"
+                f"待修复响应：\n{raw}"
+            ),
+        },
     ]
 
 

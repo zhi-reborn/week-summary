@@ -70,7 +70,7 @@ class OpenAICompatibleClient:
         try:
             return parse_person_extraction(raw)
         except InvalidStructuredResponse:
-            repaired = self._complete(build_repair_messages(raw))
+            repaired = self._complete(build_repair_messages(person, raw))
             return parse_person_extraction(repaired)
 
     def generate_section(

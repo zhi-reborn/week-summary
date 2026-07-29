@@ -74,6 +74,9 @@ def test_client_repairs_invalid_structured_response_once() -> None:
     assert result.facts[0].id == "P01-F01"
     assert len(calls) == 2
     assert "修复" in str(calls[1]["messages"])
+    assert "P01" in str(calls[1]["messages"])
+    assert "张三" in str(calls[1]["messages"])
+    assert "完成统一认证上线" in str(calls[1]["messages"])
 
 
 def test_client_stops_after_one_failed_repair() -> None:
@@ -90,8 +93,10 @@ def test_client_stops_after_one_failed_repair() -> None:
     )
     person = PersonSegment(id="P01", name="张三", line_start=1, line_end=2, content="完成A")
 
-    with pytest.raises(InvalidStructuredResponse):
+    with pytest.raises(InvalidStructuredResponse) as error:
         client.extract_person(person)
+
+    assert error.value.code == "MODEL_SCHEMA_INVALID"
 
 
 def test_extraction_falls_back_when_response_format_is_unsupported() -> None:
