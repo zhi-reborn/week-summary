@@ -16,6 +16,16 @@ from app.infrastructure.db.repositories import (
 )
 
 
+class SchemaFailure(ValueError):
+    code = "MODEL_SCHEMA_INVALID"
+
+
+@dataclass
+class SchemaFailingLLM:
+    def extract_person(self, person: PersonSegment) -> PersonExtraction:
+        raise SchemaFailure(f"invalid response for {person.id}")
+
+
 @dataclass
 class FailingSecondLLM:
     calls: list[str] = field(default_factory=list)
@@ -67,6 +77,46 @@ def test_person_failure_keeps_prior_person_facts(db_session: Session) -> None:
     ]
     assert JobStepRepository(db_session).get(task.id, "extract_person", "P01").status == "succeeded"
     assert JobStepRepository(db_session).get(task.id, "extract_person", "P02").status == "failed"
+
+
+def test_persists_specific_person_extraction_error(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    events: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        "app.application.analysis_service.log_event",
+        events.append,
+        raising=False,
+    )
+    task = TaskRepository(db_session).create("第29周")
+    PeopleRepository(db_session).replace_confirmed(
+        task.id,
+        [
+            PersonSegment(
+                id="P01",
+                name="张三",
+                line_start=1,
+                line_end=2,
+                content="完成A",
+            )
+        ],
+    )
+    db_session.commit()
+
+    with pytest.raises(SchemaFailure):
+        AnalysisService(db_session, SchemaFailingLLM()).extract_people(task.id)
+
+    step = JobStepRepository(db_session).get(task.id, "extract_person", "P01")
+    assert step is not None
+    assert step.error_code == "MODEL_SCHEMA_INVALID"
+    assert events == [
+        {
+            "task_id": task.id,
+            "stage": "person_extraction",
+            "entity_id": "P01",
+            "error_code": "MODEL_SCHEMA_INVALID",
+        }
+    ]
 
 
 def test_job_step_status_is_constrained_by_database(db_session: Session) -> None:

@@ -15,6 +15,7 @@ _LOG_FIELDS = {
     "request_id",
     "task_id",
     "stage",
+    "entity_id",
     "duration_ms",
     "error_code",
     "model_http_status",

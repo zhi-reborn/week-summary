@@ -2,6 +2,7 @@ from typing import Protocol
 
 from sqlalchemy.orm import Session
 
+from app.core.logging import log_event
 from app.domain.facts import PersonExtraction
 from app.domain.people import PersonSegment
 from app.infrastructure.db.repositories import FactRepository, JobStepRepository, PeopleRepository
@@ -40,8 +41,17 @@ class AnalysisService:
                 )
                 if current is None:
                     raise
+                error_code = getattr(exc, "code", "PERSON_EXTRACTION_FAILED")
+                log_event(
+                    {
+                        "task_id": task_id,
+                        "stage": "person_extraction",
+                        "entity_id": person.id,
+                        "error_code": error_code,
+                    }
+                )
                 JobStepRepository(self._session).mark_failed(
-                    current.id, getattr(exc, "code", "PERSON_EXTRACTION_FAILED")
+                    current.id, error_code
                 )
                 self._session.commit()
                 raise
