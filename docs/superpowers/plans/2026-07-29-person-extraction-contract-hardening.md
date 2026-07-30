@@ -402,7 +402,7 @@ git commit -m "fix: record safe person extraction diagnostics"
 **Files:**
 - No production files expected.
 
-- [ ] **Step 1: Run backend tests**
+- [x] **Step 1: Run backend tests**
 
 Run:
 
@@ -412,7 +412,7 @@ Run:
 
 Expected: all backend tests pass.
 
-- [ ] **Step 2: Run Python static checks**
+- [x] **Step 2: Run Python static checks**
 
 Run:
 
@@ -424,7 +424,7 @@ git diff --check
 
 Expected: all commands exit successfully with no errors.
 
-- [ ] **Step 3: Run frontend regression checks**
+- [x] **Step 3: Run frontend regression checks**
 
 Run:
 
@@ -435,7 +435,7 @@ npm --prefix frontend run build
 
 Expected: all frontend tests pass and the production build succeeds.
 
-- [ ] **Step 4: Run a read-only current-P01 model probe**
+- [x] **Step 4: Run a read-only current-P01 model probe**
 
 Use the configured local model and current P01 data without writing to `data/app.db`. Assert in the diagnostic output:
 
@@ -446,7 +446,7 @@ fact_ids=P01-F01,...
 source_person_ids=P01
 ```
 
-- [ ] **Step 5: Restart the application service**
+- [x] **Step 5: Restart the application service**
 
 Stop only the existing weekly-report application process, start it from this repository with the existing data directory and configuration, then verify:
 
@@ -457,7 +457,7 @@ curl -sS http://127.0.0.1:8765/api/settings/model
 
 Expected: health is successful and model settings still point to the local Ollama endpoint.
 
-- [ ] **Step 6: Retry the failed analysis step and monitor to a terminal state**
+- [x] **Step 6: Retry the failed analysis step and monitor to a terminal state**
 
 Call the existing retry endpoint once:
 
@@ -473,7 +473,7 @@ Poll the analysis status without issuing additional retries. Acceptance criteria
 - The task either reaches review/export successfully or exposes a new, specific downstream error code.
 - No uploaded TXT, DOCX, confirmed people or template sections are modified.
 
-- [ ] **Step 7: Commit any plan checkbox updates**
+- [x] **Step 7: Commit any plan checkbox updates**
 
 If plan checkboxes are updated during execution, commit only this plan:
 
