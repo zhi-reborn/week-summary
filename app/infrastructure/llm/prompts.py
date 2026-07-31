@@ -62,13 +62,19 @@ def build_section_generation_messages(
     section: TemplateSection, facts: list[Fact], instruction: str
 ) -> list[dict[str, str]]:
     schema = json.dumps(GeneratedSection.model_json_schema(), ensure_ascii=False)
-    fact_payload = []
-    for fact in facts:
-        item = fact.model_dump(mode="json")
-        item["source_ids"] = [
-            f"{fact.id}:S{index}" for index, _source in enumerate(fact.sources, start=1)
-        ]
-        fact_payload.append(item)
+    fact_payload = [
+        {
+            "id": fact.id,
+            "kind": fact.kind.value,
+            "topic": fact.topic,
+            "text": fact.text,
+            "metrics": [m.model_dump(mode="json") for m in fact.metrics],
+            "source_ids": [
+                f"{fact.id}:S{index}" for index, _source in enumerate(fact.sources, start=1)
+            ],
+        }
+        for fact in facts
+    ]
     return [
         {
             "role": "system",

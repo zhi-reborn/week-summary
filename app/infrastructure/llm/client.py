@@ -88,6 +88,7 @@ class OpenAICompatibleClient:
             "model": self._model,
             "temperature": self._temperature,
             "messages": messages,
+            "max_tokens": 2048,
             "response_format": {"type": "json_object"},
         }
         response = self._send(payload)

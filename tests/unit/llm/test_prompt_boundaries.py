@@ -1,7 +1,12 @@
+import json
+
+from app.domain.facts import Fact, FactKind, SourceRef
 from app.domain.people import PersonSegment
+from app.domain.template import RecognitionMethod, TemplateLocator, TemplateSection
 from app.infrastructure.llm.prompts import (
     build_person_extraction_messages,
     build_repair_messages,
+    build_section_generation_messages,
 )
 
 
@@ -37,3 +42,37 @@ def test_repair_prompt_repeats_expected_person_and_numbered_source() -> None:
     assert 'person_name="张三"' in messages[1]["content"]
     assert "5: 完成统一认证上线" in messages[1]["content"]
     assert '{"person_id":"P02"}' in messages[1]["content"]
+
+
+def _section() -> TemplateSection:
+    return TemplateSection(
+        id="S01",
+        name="本周工作概述",
+        method=RecognitionMethod.PLACEHOLDER,
+        confidence=1,
+        locator=TemplateLocator(part="w", paragraph_index=0, token="{{x}}"),
+        instruction="概述本周成果",
+        max_chars=1200,
+    )
+
+
+def _fact() -> Fact:
+    return Fact(
+        id="P01-F01",
+        kind=FactKind.COMPLETED,
+        topic="扩容",
+        text="完成 redis 扩容",
+        sources=[SourceRef(person_id="P01", line_start=2, line_end=2, quote="完成 redis 扩容")],
+        confidence=0.9,
+    )
+
+
+def test_section_prompt_omits_redundant_quote() -> None:
+    # The model only needs id/kind/topic/text/metrics/source_ids to generate
+    # a section. Sending the full model dump (quote duplicating text, sources
+    # metadata, confidence) bloats the prompt and causes model timeouts on
+    # large candidate sets.
+    messages = build_section_generation_messages(_section(), [_fact()], "")
+    payload = json.loads(messages[1]["content"])
+    fact = payload["candidate_facts"][0]
+    assert set(fact.keys()) == {"id", "kind", "topic", "text", "metrics", "source_ids"}
