@@ -108,6 +108,8 @@ class SectionGenerationService:
 def section_allowed_kinds(section: TemplateSection) -> set[FactKind]:
     if section.allowed_fact_kinds:
         return set(section.allowed_fact_kinds)
+    if "概述" in section.name:
+        return set(FactKind)
     text = f"{section.name} {section.instruction}".casefold()
     if any(keyword in text for keyword in ("风险", "问题", "求助", "阻塞")):
         return {FactKind.RISK, FactKind.HELP_NEEDED}

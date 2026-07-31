@@ -2,10 +2,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
-from sqlalchemy.orm import Session
 from pydantic import TypeAdapter
+from sqlalchemy.orm import Session
 
-from app.application.section_generation_service import SectionGenerationService
+from app.application.section_generation_service import (
+    SectionGenerationService,
+    section_allowed_kinds,
+)
 from app.domain.facts import Fact, FactKind, PersonExtraction, SourceRef
 from app.domain.people import PersonSegment
 from app.domain.review import GeneratedSection
@@ -161,3 +164,21 @@ def test_rejects_source_from_fact_not_used_by_section(
 
     with pytest.raises(ValueError, match="来源"):
         service.generate(task_id, _section("all", "综合情况"))
+
+
+def _overview_section() -> TemplateSection:
+    return TemplateSection(
+        id="S01",
+        name="本周工作概述 / 业务连续性",
+        method=RecognitionMethod.PLACEHOLDER,
+        confidence=1,
+        locator=TemplateLocator(part="word/document.xml", paragraph_index=0, token="{{x}}"),
+        instruction="概述本周扩容、迁移、升级、演练等工作成果及风险收敛情况。",
+        max_chars=1200,
+    )
+
+
+def test_overview_section_aggregates_all_fact_kinds() -> None:
+    # S01 is an overview section; its instruction mentions "风险" but it should
+    # aggregate every fact kind, not be misclassified as risk-only.
+    assert section_allowed_kinds(_overview_section()) == set(FactKind)
