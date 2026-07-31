@@ -58,6 +58,10 @@ class SettingsService:
 
 
 def _platform_secret_store(data_dir: Path) -> SecretStore:
+    # Secrets live in a dedicated "secrets" subdirectory under data_dir so that
+    # they are isolated from other runtime files and can carry stricter
+    # permissions (LinuxFileSecretStore chmods the directory to 0o700).
+    secrets_dir = data_dir / "secrets"
     if os.name == "nt":
-        return WindowsDPAPISecretStore(data_dir)
-    return LinuxFileSecretStore(data_dir)
+        return WindowsDPAPISecretStore(secrets_dir)
+    return LinuxFileSecretStore(secrets_dir)

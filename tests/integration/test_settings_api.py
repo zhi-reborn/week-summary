@@ -24,6 +24,6 @@ def test_model_settings_never_return_api_key(client: TestClient, tmp_path: Path)
     assert "api_key" not in response.json()
     assert "secret-value" not in response.text
     assert "api_key" not in client.get("/api/settings/model").json()
-    key_path = tmp_path / "model_api_key"
+    key_path = tmp_path / "secrets" / "model_api_key"
     if os.name != "nt":
         assert stat.S_IMODE(key_path.stat().st_mode) == 0o600

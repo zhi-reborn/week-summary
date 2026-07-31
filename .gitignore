@@ -6,6 +6,13 @@
 __pycache__/
 *.py[cod]
 data/
+# Defense-in-depth: data/ is already ignored, but explicitly block secret
+# files anywhere in the repo in case they are moved out of data/.
+**/secrets/
+**/model_api_key
+**/.env
+**/.env.*
+!.env.example
 build/
 dist/
 app/static/
