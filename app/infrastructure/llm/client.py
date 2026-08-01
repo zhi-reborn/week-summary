@@ -29,6 +29,13 @@ class LLMConnectionError(Exception):
         super().__init__(message)
 
 
+# Reasoning models (e.g. GLM-5.x) share the max_tokens budget between
+# reasoning_content and the final content. 2048 starves the final JSON output
+# on non-trivial inputs, leaving content empty and triggering schema failures.
+# 8192 leaves headroom for reasoning (~3k tokens) plus the JSON payload (~2k).
+_MAX_COMPLETION_TOKENS = 8192
+
+
 class OpenAICompatibleClient:
     def __init__(
         self,
@@ -89,7 +96,7 @@ class OpenAICompatibleClient:
             "model": self._model,
             "temperature": self._temperature,
             "messages": messages,
-            "max_tokens": 2048,
+            "max_tokens": _MAX_COMPLETION_TOKENS,
             "response_format": {"type": "json_object"},
         }
         response = self._send(payload)
