@@ -9,7 +9,7 @@ class InvalidStructuredResponse(ValueError):
 
 
 def parse_person_extraction(raw: str) -> PersonExtraction:
-    candidate = _json_candidate(raw)
+    candidate = extract_json_object(raw)
     try:
         return PersonExtraction.model_validate_json(candidate)
     except (ValidationError, ValueError) as exc:
@@ -17,14 +17,15 @@ def parse_person_extraction(raw: str) -> PersonExtraction:
 
 
 def parse_generated_section(raw: str) -> GeneratedSection:
-    candidate = _json_candidate(raw)
+    candidate = extract_json_object(raw)
     try:
         return GeneratedSection.model_validate_json(candidate)
     except (ValidationError, ValueError) as exc:
         raise InvalidStructuredResponse(f"invalid structured response: {exc}") from exc
 
 
-def _json_candidate(raw: str) -> str:
+def extract_json_object(raw: str) -> str:
+    """Strip markdown fences and surrounding prose to isolate a JSON object."""
     candidate = raw.strip()
     if candidate.startswith("```") and candidate.endswith("```"):
         first_newline = candidate.find("\n")

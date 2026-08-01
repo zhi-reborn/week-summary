@@ -123,3 +123,26 @@ def test_extraction_falls_back_when_response_format_is_unsupported() -> None:
     assert client.extract_person(person).person_id == "P01"
     assert len(requests) == 2
     assert "response_format" not in requests[1]
+
+
+def test_connection_test_accepts_markdown_fenced_json() -> None:
+    # Some providers (e.g. GLM) wrap JSON responses in markdown code fences even
+    # when response_format=json_object is set. test_connection must still report
+    # json_mode=True so the service is usable with these models.
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": "```json\n{\"ok\": true}\n```"}}]},
+        )
+
+    client = OpenAICompatibleClient(
+        base_url="http://model.local/v1",
+        model="private-model",
+        api_key=None,
+        transport=httpx.MockTransport(handler),
+    )
+
+    capabilities = client.test_connection()
+
+    assert capabilities.reachable is True
+    assert capabilities.json_mode is True

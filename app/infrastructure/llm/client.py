@@ -17,6 +17,7 @@ from app.infrastructure.llm.prompts import (
 )
 from app.infrastructure.llm.schemas import (
     InvalidStructuredResponse,
+    extract_json_object,
     parse_generated_section,
     parse_person_extraction,
 )
@@ -165,7 +166,11 @@ class OpenAICompatibleClient:
     def _parse_message_json(response: httpx.Response) -> dict[str, Any]:
         content = OpenAICompatibleClient._message_content(response)
         try:
-            parsed = json.loads(content)
+            candidate = extract_json_object(content)
+        except InvalidStructuredResponse as exc:
+            raise LLMConnectionError("INVALID_MODEL_RESPONSE", "模型响应不是有效 JSON") from exc
+        try:
+            parsed = json.loads(candidate)
         except (ValueError, TypeError) as exc:
             raise LLMConnectionError("INVALID_MODEL_RESPONSE", "模型响应不是有效 JSON") from exc
         if not isinstance(parsed, dict):
