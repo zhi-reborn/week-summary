@@ -46,6 +46,7 @@ def main() -> None:
             api_key=api_key,
             timeout_seconds=model.timeout_seconds,
             temperature=model.temperature,
+            max_retries=model.max_retries,
         )
 
     pipeline = AnalysisPipeline(

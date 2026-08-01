@@ -4,7 +4,7 @@ import httpx
 import pytest
 
 from app.domain.people import PersonSegment
-from app.infrastructure.llm.client import OpenAICompatibleClient
+from app.infrastructure.llm.client import LLMConnectionError, OpenAICompatibleClient
 from app.infrastructure.llm.schemas import (
     InvalidStructuredResponse,
     parse_person_extraction,
@@ -146,3 +146,62 @@ def test_connection_test_accepts_markdown_fenced_json() -> None:
 
     assert capabilities.reachable is True
     assert capabilities.json_mode is True
+
+
+def test_complete_retries_on_timeout_then_succeeds() -> None:
+    # Reasoning models behind cloud APIs occasionally time out on large inputs.
+    # _complete must retry transient timeouts (MODEL_TIMEOUT) up to max_retries
+    # times so the pipeline self-heals instead of failing the whole task.
+    attempts = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            raise httpx.TimeoutException("simulated timeout")
+        return httpx.Response(
+            200,
+            json={"choices": [{"message": {"content": json.dumps(VALID_EXTRACTION)}}]},
+        )
+
+    client = OpenAICompatibleClient(
+        base_url="http://model.local/v1",
+        model="private-model",
+        api_key=None,
+        timeout_seconds=1,
+        max_retries=2,
+        transport=httpx.MockTransport(handler),
+    )
+
+    result = client.extract_person(
+        PersonSegment(id="P01", name="张三", line_start=1, line_end=2, content="完成A")
+    )
+
+    assert attempts == 2
+    assert result.person_id == "P01"
+
+
+def test_complete_does_not_retry_auth_errors() -> None:
+    # AUTH_FAILED is not transient; retrying wastes time and still fails.
+    attempts = 0
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        nonlocal attempts
+        attempts += 1
+        return httpx.Response(401, json={"error": "bad key"})
+
+    client = OpenAICompatibleClient(
+        base_url="http://model.local/v1",
+        model="private-model",
+        api_key=None,
+        max_retries=3,
+        transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(LLMConnectionError) as error:
+        client.extract_person(
+            PersonSegment(id="P01", name="张三", line_start=1, line_end=2, content="完成A")
+        )
+
+    assert attempts == 1
+    assert error.value.code == "AUTH_FAILED"

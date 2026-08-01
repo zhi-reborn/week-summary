@@ -1,4 +1,5 @@
 import json
+import time
 from typing import Any
 
 import httpx
@@ -45,6 +46,7 @@ class OpenAICompatibleClient:
         api_key: str | None,
         timeout_seconds: int = 120,
         temperature: float = 0.1,
+        max_retries: int = 0,
         transport: httpx.BaseTransport | None = None,
     ) -> None:
         self._url = f"{base_url.rstrip('/')}/chat/completions"
@@ -52,6 +54,7 @@ class OpenAICompatibleClient:
         self._api_key = api_key
         self._timeout = timeout_seconds
         self._temperature = temperature
+        self._max_retries = max_retries
         self._transport = transport
 
     def test_connection(self) -> ModelCapabilities:
@@ -99,12 +102,29 @@ class OpenAICompatibleClient:
             "max_tokens": _MAX_COMPLETION_TOKENS,
             "response_format": {"type": "json_object"},
         }
-        response = self._send(payload)
-        if response.status_code == 400 and "response_format" in response.text.lower():
-            payload.pop("response_format")
-            response = self._send(payload)
-        self._raise_for_status(response)
-        return self._message_content(response)
+        last_error: LLMConnectionError | None = None
+        for attempt in range(self._max_retries + 1):
+            try:
+                response = self._send(payload)
+                if (
+                    response.status_code == 400
+                    and "response_format" in response.text.lower()
+                ):
+                    payload.pop("response_format")
+                    response = self._send(payload)
+                self._raise_for_status(response)
+                return self._message_content(response)
+            except LLMConnectionError as exc:
+                last_error = exc
+                # Only transient errors are worth retrying; auth/not-found/rejected
+                # will fail identically on the next attempt.
+                if exc.code not in {"MODEL_TIMEOUT", "MODEL_UNREACHABLE"}:
+                    raise
+                if attempt >= self._max_retries:
+                    raise
+                time.sleep(2 ** attempt)
+        assert last_error is not None
+        raise last_error
 
     def _send(self, payload: dict[str, Any]) -> httpx.Response:
         headers = {"Content-Type": "application/json"}
