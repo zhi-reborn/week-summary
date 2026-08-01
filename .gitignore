@@ -23,3 +23,8 @@ frontend/test-results/
 frontend/vite.config.d.ts
 frontend/vite.config.js
 *.tsbuildinfo
+
+# Sample weekly report inputs (people's raw .txt reports, merged reports, and
+# template .docx) used for manual testing at the repo root. Keep them local.
+/*.txt
+/*.docx
