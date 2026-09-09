@@ -31,6 +31,9 @@ export const reviewApi = {
   confirm: (taskId: string, sectionKey: string) => api<ReviewSection>(
     `/api/tasks/${taskId}/sections/${sectionKey}/confirm`, { method: "POST" },
   ),
+  batchConfirm: (taskId: string) => api<ReviewSection[]>(
+    `/api/tasks/${taskId}/sections/batch-confirm`, { method: "POST" },
+  ),
   versions: (taskId: string, sectionKey: string) => api<ReviewSection[]>(
     `/api/tasks/${taskId}/sections/${sectionKey}/versions`,
   ),

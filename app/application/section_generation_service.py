@@ -1,7 +1,17 @@
+import logging
+import re
 from typing import Protocol
 
 from pydantic import TypeAdapter
 from sqlalchemy.orm import Session
+
+_logger = logging.getLogger(__name__)
+
+# Strip fact IDs like (P01-F01) or (P01-F01, P02-F03) that the model may
+# erroneously embed in the generated body text.
+_FACT_ID_REF_PATTERN = re.compile(
+    r"\s*[（(]P\d+-F\d+(?:[，,\s]*P\d+-F\d+)*[）)]\s*"
+)
 
 from app.application.quality_service import QualityService
 from app.domain.facts import Fact, FactKind, SourceRef
@@ -43,6 +53,7 @@ class SectionGenerationService:
         all_facts = FactRepository(self._session).list_by_task(task_id)
         candidates = [fact for fact in all_facts if fact.kind in section_allowed_kinds(section)]
         generated = self._llm.generate_section(section, candidates, instruction)
+        generated = _clean_body_fact_refs(generated)
         self._validate_generated(task_id, section, candidates, generated)
 
         facts_by_id = {fact.id: fact for fact in candidates}
@@ -94,7 +105,11 @@ class SectionGenerationService:
         if generated.section_id != section.id:
             raise ValueError("模型返回的板块 ID 不一致")
         if len(generated.body) > section.max_chars:
-            raise ValueError("生成内容超过板块篇幅限制")
+            _logger.warning(
+                "section %s body truncated from %d to %d chars",
+                section.id, len(generated.body), section.max_chars,
+            )
+            generated.body = generated.body[: section.max_chars]
         fact_ids = {fact.id for fact in candidates}
         if not set(generated.fact_ids) <= fact_ids:
             raise ValueError("生成结果引用了当前板块候选集以外的事实")
@@ -123,6 +138,16 @@ def section_allowed_kinds(section: TemplateSection) -> set[FactKind]:
             FactKind.MILESTONE,
         }
     return set(FactKind)
+
+
+def _clean_body_fact_refs(generated: GeneratedSection) -> GeneratedSection:
+    body = _FACT_ID_REF_PATTERN.sub("", generated.body)
+    if body != generated.body:
+        _logger.warning(
+            "section %s body contained embedded fact IDs; stripped %d chars",
+            generated.section_id, len(generated.body) - len(body),
+        )
+    return generated.model_copy(update={"body": body})
 
 
 def _source_map(facts: list[Fact]) -> dict[str, SourceRef]:

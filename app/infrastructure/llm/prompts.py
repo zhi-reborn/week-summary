@@ -81,6 +81,8 @@ def build_section_generation_messages(
             "content": (
                 "你是团队周报板块撰写器。只能使用候选事实，不得增加事实、人员、数字或来源。"
                 "fact_ids 和 source_ids 只能引用候选数据中的 ID。"
+                "正文中不得出现任何事实 ID（如 P01-F01）或来源 ID，这些是内部元数据。"
+                f"板块正文不超过 {section.max_chars} 字符。"
                 f"只返回符合以下 JSON Schema 的对象：{schema}"
             ),
         },

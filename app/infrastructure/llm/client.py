@@ -31,9 +31,9 @@ class LLMConnectionError(Exception):
 
 
 # Reasoning models (e.g. GLM-5.x) share the max_tokens budget between
-# reasoning_content and the final content. 2048 starves the final JSON output
-# on non-trivial inputs, leaving content empty and triggering schema failures.
-# 8192 leaves headroom for reasoning (~3k tokens) plus the JSON payload (~2k).
+# reasoning_content and the final content. 8192 is the sweet spot for response
+# time. When the model consumes all tokens for reasoning, the empty-content
+# fallback in _complete() retries without response_format to reduce overhead.
 _MAX_COMPLETION_TOKENS = 8192
 
 
@@ -113,7 +113,17 @@ class OpenAICompatibleClient:
                     payload.pop("response_format")
                     response = self._send(payload)
                 self._raise_for_status(response)
-                return self._message_content(response)
+                content = self._message_content(response)
+                # Reasoning models may consume all tokens for reasoning_content,
+                # leaving content empty. When this happens, retry without
+                # response_format to reduce reasoning overhead.
+                if not content.strip() and "response_format" in payload:
+                    log_event(
+                        {"stage": "model_request", "error_code": "EMPTY_CONTENT_RETRY"}
+                    )
+                    payload.pop("response_format")
+                    continue
+                return content
             except LLMConnectionError as exc:
                 last_error = exc
                 # Only transient errors are worth retrying; auth/not-found/rejected

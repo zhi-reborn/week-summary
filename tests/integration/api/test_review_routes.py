@@ -108,6 +108,32 @@ def test_confirms_and_restores_as_new_revisions(client: TestClient) -> None:
     assert restored.json()["confirmed"] is False
 
 
+def test_batch_confirm_confirms_all_unconfirmed_sections(client: TestClient) -> None:
+    task_id = _review_task(client)
+
+    response = client.post(f"/api/tasks/{task_id}/sections/batch-confirm")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert len(payload) == 1
+    assert payload[0]["section_key"] == "progress"
+    assert payload[0]["confirmed"] is True
+    assert payload[0]["revision"] == 2
+
+
+def test_batch_confirm_is_idempotent_for_already_confirmed_sections(
+    client: TestClient,
+) -> None:
+    task_id = _review_task(client)
+    client.post(f"/api/tasks/{task_id}/sections/progress/confirm")
+
+    response = client.post(f"/api/tasks/{task_id}/sections/batch-confirm")
+
+    assert response.status_code == 200
+    # Already-confirmed sections should not get an empty revision bump.
+    assert response.json()[0]["revision"] == 2
+
+
 def test_review_route_error_contracts(client: TestClient) -> None:
     task_id = _review_task(client)
     draft_id = _review_task(client, status=TaskStatus.DRAFT)

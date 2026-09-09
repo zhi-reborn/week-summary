@@ -27,6 +27,8 @@ export function ReviewPage({ taskId }: { taskId: string }) {
   const selected = sections.find((section) => section.section_key === selectedKey) ?? null;
   const allRequiredConfirmed = sections.length > 0
     && sections.every((section) => !section.required || section.confirmed);
+  const allConfirmed = sections.length > 0
+    && sections.every((section) => section.confirmed);
 
   useEffect(() => {
     let active = true;
@@ -87,6 +89,23 @@ export function ReviewPage({ taskId }: { taskId: string }) {
       setNotice(`版本 ${updated.revision} 已确认`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "确认失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmAll() {
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await reviewApi.batchConfirm(taskId);
+      setSections(updated);
+      const current = updated.find((item) => item.section_key === selectedKey) ?? null;
+      if (current) setDraft(current.content);
+      const confirmedCount = updated.filter((item) => item.confirmed).length;
+      setNotice(`已一键确认 ${confirmedCount} 个板块`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "一键确认失败");
     } finally {
       setBusy(false);
     }
@@ -182,6 +201,14 @@ export function ReviewPage({ taskId }: { taskId: string }) {
         <div><p className="eyebrow">Review desk / Local draft</p><h1>周报校审台</h1></div>
         <div className="review-export">
           <p>{sections.filter((section) => section.confirmed).length} / {sections.length} 个板块已确认</p>
+          <button
+            type="button"
+            className="secondary-action"
+            disabled={busy || allConfirmed}
+            onClick={confirmAll}
+          >
+            {busy ? "正在确认…" : "一键确认所有板块"}
+          </button>
           {downloadName ? (
             <a className="primary-action" href={`/api/tasks/${taskId}/download`}>下载{downloadName}</a>
           ) : (

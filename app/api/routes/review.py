@@ -99,6 +99,21 @@ def confirm_section(
     return ReviewSectionResponse.from_data(data)
 
 
+@router.post("/batch-confirm", response_model=list[ReviewSectionResponse])
+def confirm_all_sections(
+    task_id: str,
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+) -> list[ReviewSectionResponse]:
+    try:
+        data = _service(request, session).confirm_all_sections(task_id, "local-user")
+    except ReviewNotReady as exc:
+        raise ApiError(409, "REVIEW_NOT_READY", str(exc)) from exc
+    except LookupError as exc:
+        raise _not_found(exc) from exc
+    return [ReviewSectionResponse.from_data(item) for item in data]
+
+
 @router.post("/{section_key}/restore/{revision}", response_model=ReviewSectionResponse)
 def restore_section(
     task_id: str,

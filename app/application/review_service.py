@@ -72,6 +72,20 @@ class ReviewService:
         )
         return ReviewSectionData(current.section, saved, current.generated)
 
+    def confirm_all_sections(self, task_id: str, editor: str) -> list[ReviewSectionData]:
+        self._require_editable(task_id)
+        reviews = SectionReviewRepository(self._session)
+        results: list[ReviewSectionData] = []
+        for section in self._sections(task_id):
+            current = self._get_data(task_id, section)
+            # Skip already-confirmed sections so we don't create empty revision bumps.
+            if current.review.confirmed:
+                results.append(current)
+                continue
+            saved = reviews.save(task_id, current.review.confirm(editor))
+            results.append(ReviewSectionData(current.section, saved, current.generated))
+        return results
+
     def restore_section(
         self, task_id: str, section_key: str, revision: int, editor: str
     ) -> ReviewSectionData:

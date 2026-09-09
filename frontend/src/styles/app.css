@@ -105,6 +105,9 @@ button, input, textarea { font: inherit; }
 .review-export { display: grid; justify-items: end; gap: 10px; }
 .review-export p { margin: 0; font-size: 12px; font-weight: 800; }
 .review-export .primary-action { min-width: 0; margin: 0; padding: 11px 14px; font-size: 12px; }
+.review-export .secondary-action { min-width: 0; margin: 0; padding: 11px 14px; font-size: 12px; border: 1px solid #17202a; background: transparent; color: #17202a; cursor: pointer; transition: background .18s ease, color .18s ease; }
+.review-export .secondary-action:hover:not(:disabled) { background: #17202a; color: #fff; }
+.review-export .secondary-action:disabled { opacity: .4; cursor: not-allowed; }
 .review-message { margin: 18px 0 0; }
 .review-message.error-banner, .review-message .error-banner { margin: 0; }
 .review-grid { display: grid; grid-template-columns: 230px minmax(440px, 1fr) 310px; min-height: calc(100vh - 190px); border-bottom: 1px solid #9b998f; }

@@ -93,6 +93,26 @@ describe("ReviewPage", () => {
     );
   });
 
+  it("confirms all sections in one click", async () => {
+    const fetchMock = vi.fn().mockImplementation((path: string, init?: RequestInit) => {
+      if (path.endsWith("/versions")) return Promise.resolve(response([section]));
+      if (path.endsWith("/batch-confirm") && init?.method === "POST") {
+        return Promise.resolve(response([{ ...section, confirmed: true, revision: 2 }]));
+      }
+      return Promise.resolve(response([section]));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ReviewPage taskId="task-1" />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "一键确认所有板块" }));
+
+    expect(await screen.findByText("已一键确认 1 个板块")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining("/batch-confirm"),
+      expect.objectContaining({ method: "POST" }),
+    );
+  });
+
   it("allows export when only optional sections are unconfirmed", async () => {
     const optional = { ...section, required: false };
     const fetchMock = vi.fn().mockImplementation((path: string, init?: RequestInit) => {
