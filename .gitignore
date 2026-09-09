@@ -6,6 +6,9 @@
 __pycache__/
 *.py[cod]
 data/
+# Local dev runtime data (database, logs) created when overriding
+# WRA_DATA_DIR/WRA_LOG_DIR to run the backend inside the repo.
+.runtime/
 # Defense-in-depth: data/ is already ignored, but explicitly block secret
 # files anywhere in the repo in case they are moved out of data/.
 **/secrets/
